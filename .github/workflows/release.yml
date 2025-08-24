@@ -1,0 +1,75 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Create directory for artifact
+        run: mkdir -p llm-translator
+      
+      - name: Copy files to artifact directory
+        run: |
+          cp translator.html llm-translator/
+          cp translator.js llm-translator/
+          cp translator.css llm-translator/
+          cp prompts.json llm-translator/
+          cp README.md llm-translator/
+      
+      - name: Create ZIP archive
+        run: zip -r llm-translator-${{ github.ref_name }}.zip llm-translator/
+      
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref_name }}
+          body: |
+            ## LLM Translator ${{ github.ref_name }}
+            
+            ### 含まれるファイル
+            - `translator.html` - メインHTMLファイル
+            - `translator.js` - JavaScript処理ロジック
+            - `translator.css` - スタイルシート
+            - `prompts.json` - 翻訳プロンプト設定
+            - `README.md` - ドキュメント
+            
+            ### 機能
+            - 使用するLLMモデルに応じた多言語翻訳
+            - EPUBファイル対応
+            - テキストファイル対応
+            - 大規模ドキュメント用のチャンク分割処理
+            - LM Studioのローカルモデルとの連携
+            
+            ### 使い方
+            1. ZIPファイルをダウンロードして解凍
+            2. ブラウザで`translator.html`を開く
+            3. LM Studioをポート1234でローカルサーバーとして起動
+            4. 翻訳を開始！
+            
+            詳細な手順は[README.md](https://github.com/${{ github.repository }}/blob/main/README.md)をご参照ください。
+          draft: false
+          prerelease: false
+      
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./llm-translator-${{ github.ref_name }}.zip
+          asset_name: llm-translator-${{ github.ref_name }}.zip
+          asset_content_type: application/zip
