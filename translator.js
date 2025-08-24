@@ -1235,9 +1235,9 @@ class TranslatorApp {
         this.uiManager.hideError();
         
         // ボタンを中止ボタンに変更
-        elements.translateBtn.classList.remove('loading');
         elements.translateBtn.innerHTML = '<span class="btn-text">中止</span>';
         elements.translateBtn.style.backgroundColor = '#ef4444';
+        elements.translateBtn.style.color = '#ffffff';
         
         elements.saveHtmlBtn.disabled = true;
         elements.fileInput.disabled = true;  // ファイル選択を無効化
@@ -1253,9 +1253,6 @@ class TranslatorApp {
         elements.outputText.classList.add('translating');
         elements.markdownPreview.innerHTML = '';
         this.uiManager.showProgressBar();
-        
-        // ローディング状態を追加（スピナーを表示）
-        elements.translateBtn.classList.add('loading');
         
         // Test API connection
         const isConnected = await this.apiClient.testConnection(
@@ -1304,6 +1301,7 @@ class TranslatorApp {
                 <span class="spinner"></span>
             `;
             elements.translateBtn.style.backgroundColor = '';
+            elements.translateBtn.style.color = '';
             elements.translateBtn.classList.remove('loading');
             
             elements.outputText.classList.remove('translating');
