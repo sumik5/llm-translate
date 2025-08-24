@@ -31,13 +31,10 @@ jobs:
         run: zip -r llm-translator-${{ github.ref_name }}.zip llm-translator/
       
       - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref_name }}
+          files: llm-translator-${{ github.ref_name }}.zip
+          name: Release ${{ github.ref_name }}
           body: |
             ## LLM Translator ${{ github.ref_name }}
             
@@ -65,13 +62,5 @@ jobs:
             詳細な手順は[README.md](https://github.com/${{ github.repository }}/blob/main/README.md)をご参照ください。
           draft: false
           prerelease: false
-      
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./llm-translator-${{ github.ref_name }}.zip
-          asset_name: llm-translator-${{ github.ref_name }}.zip
-          asset_content_type: application/zip
