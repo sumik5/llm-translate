@@ -1,0 +1,88 @@
+{
+  "translation": {
+    "system": "あなたは優秀な翻訳者です。",
+    "markdown": {
+      "instruction": "Markdown形式を保持したまま翻訳してください。以下の規則を厳守してください：\n1. コードブロック（```で囲まれた部分）は開始タグと終了タグを必ず保持する\n2. コードブロック内のプログラムコードは変更しない（変数名、関数名、キーワードなど）\n3. コードブロック内のコメントと文字列リテラルのみ翻訳する\n4. コードブロックは必ず```で開始し、```で終了する\n5. リンク、見出しなどの構造も維持する",
+      "template": "{system}\n以下のテキストを{targetLanguage}に翻訳してください。\n{instruction}\n原文の意味を正確に保ち、自然な{targetLanguage}で表現してください。翻訳結果のみを出力し、説明は不要です。\n\n原文:\n{text}\n\n翻訳:"
+    },
+    "plain": {
+      "instruction": "プレーンテキストとして翻訳してください。",
+      "template": "{system}\n以下のテキストを{targetLanguage}に翻訳してください。\n{instruction}\n原文の意味を正確に保ち、自然な{targetLanguage}で表現してください。翻訳結果のみを出力し、説明は不要です。\n\n原文:\n{text}\n\n翻訳:"
+    }
+  },
+  "codeBlockRules": {
+    "detection": {
+      "startPattern": "^```",
+      "endPattern": "^```$",
+      "inlinePattern": "`[^`]+`"
+    },
+    "translation": {
+      "preserveElements": [
+        "変数名",
+        "関数名",
+        "クラス名",
+        "メソッド名",
+        "キーワード",
+        "演算子",
+        "import文",
+        "export文"
+      ],
+      "translateElements": [
+        "コメント（//、#、/* */）",
+        "文字列リテラル（''、\"\"内のテキスト）",
+        "docstring",
+        "JSDoc",
+        "型注釈のコメント"
+      ]
+    }
+  },
+  "languages": {
+    "英語": {
+      "code": "en",
+      "name": "English"
+    },
+    "日本語": {
+      "code": "ja",
+      "name": "Japanese"
+    },
+    "中国語": {
+      "code": "zh",
+      "name": "Chinese"
+    },
+    "韓国語": {
+      "code": "ko",
+      "name": "Korean"
+    },
+    "スペイン語": {
+      "code": "es",
+      "name": "Spanish"
+    },
+    "フランス語": {
+      "code": "fr",
+      "name": "French"
+    },
+    "ドイツ語": {
+      "code": "de",
+      "name": "German"
+    },
+    "ロシア語": {
+      "code": "ru",
+      "name": "Russian"
+    },
+    "ポルトガル語": {
+      "code": "pt",
+      "name": "Portuguese"
+    },
+    "イタリア語": {
+      "code": "it",
+      "name": "Italian"
+    }
+  },
+  "api": {
+    "defaultEndpoint": "http://127.0.0.1:1234",
+    "defaultModel": "local-model",
+    "temperature": 0.3,
+    "maxTokens": 16000,
+    "chunkMaxTokens": 12000
+  }
+}

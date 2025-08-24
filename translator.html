@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM翻訳ツール - Markdown/EPUB/PDF対応</title>
+    <!-- Marked.js for Markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- JSZip for EPUB parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- PDF.js for PDF parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
+    <!-- Prism.js for syntax highlighting -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-java.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-markdown.min.js"></script>
+    
+    <!-- External CSS -->
+    <link rel="stylesheet" href="translator.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-content">
+                <div class="header-title">
+                    <h1>LLM Translation</h1>
+                </div>
+                <div class="header-controls">
+                    <button id="translateBtn" class="btn btn-default">
+                        <span class="btn-text">翻訳する</span>
+                        <span class="spinner"></span>
+                    </button>
+                    <button id="saveHtmlBtn" class="btn btn-secondary" disabled>
+                        HTMLを保存
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Alert Messages -->
+            <div class="alert alert-error" id="errorMessage"></div>
+
+            <!-- Controls Bar -->
+            <div class="controls-bar">
+                <div class="control-group">
+                    <label class="label" for="targetLang">翻訳先言語</label>
+                    <select id="targetLang" class="select">
+                        <option value="日本語" selected>日本語</option>
+                        <option value="英語">英語</option>
+                        <option value="中国語">中国語</option>
+                        <option value="韓国語">韓国語</option>
+                        <option value="スペイン語">スペイン語</option>
+                        <option value="フランス語">フランス語</option>
+                        <option value="ドイツ語">ドイツ語</option>
+                        <option value="ロシア語">ロシア語</option>
+                        <option value="ポルトガル語">ポルトガル語</option>
+                        <option value="イタリア語">イタリア語</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label class="label" for="apiUrl">API URL</label>
+                    <input type="text" id="apiUrl" class="input" value="http://127.0.0.1:1234" style="width: 15rem;">
+                </div>
+
+                <div class="control-group">
+                    <label class="label" for="modelName">モデル</label>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <select id="modelName" class="select" style="min-width: 12rem;">
+                            <option value="">読み込み中...</option>
+                        </select>
+                        <button id="refreshModels" class="btn btn-outline btn-icon" title="モデル一覧を更新">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 2v6h-6"></path>
+                                <path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path>
+                                <path d="M3 22v-6h6"></path>
+                                <path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label class="label" for="chunkSize">チャンクサイズ</label>
+                    <input type="number" id="chunkSize" class="input" value="1000" min="500" max="10000" style="width: 7rem;">
+                </div>
+
+                <div class="control-group">
+                    <label class="label">&nbsp;</label>
+                    <div class="checkbox-wrapper">
+                        <input type="checkbox" id="isMarkdown" class="checkbox" checked>
+                        <label for="isMarkdown" class="checkbox-label">Markdown形式</label>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label class="label" for="fileInput">ファイル選択 (EPUB/PDF)</label>
+                    <input type="file" id="fileInput" class="input" accept=".epub,.pdf,.txt,.md" style="padding: 0.5rem;">
+                </div>
+
+                <div class="control-group" style="flex: 1;">
+                    <label class="label">&nbsp;</label>
+                    <div id="progressInfo" style="display: none;">
+                        <span id="statusMessage" style="font-size: 0.875rem; color: hsl(var(--muted-foreground));">処理中...</span>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Editor Container -->
+            <div class="editor-container">
+                <!-- Input Panel -->
+                <div class="editor-panel">
+                    <div class="panel-header">
+                        <span class="panel-title">入力 (Markdown)</span>
+                        <span class="panel-info" id="inputCharCount">0文字</span>
+                    </div>
+                    <textarea id="inputText" class="textarea" placeholder="翻訳したいMarkdownテキストを入力してください...
+
+# 見出し1
+## 見出し2
+
+- リスト項目1
+- リスト項目2
+
+```javascript
+// コードブロック
+console.log('Hello World');
+```"></textarea>
+                </div>
+
+                <!-- Output Panel -->
+                <div class="editor-panel" style="position: relative;">
+                    <div class="panel-header">
+                        <div class="tabs-list">
+                            <button class="tabs-trigger" data-state="active" data-tab="text">テキスト</button>
+                            <button class="tabs-trigger" data-tab="preview">プレビュー</button>
+                        </div>
+                        <span class="panel-info" id="outputCharCount">0文字</span>
+                    </div>
+                    
+                    <div class="tabs">
+                        <div class="tabs-content" data-state="active" data-content="text">
+                            <textarea id="outputText" class="textarea" readonly placeholder="翻訳結果がここに表示されます..."></textarea>
+                        </div>
+                        
+                        <div class="tabs-content" data-content="preview">
+                            <div class="preview-container">
+                                <div class="markdown-body" id="markdownPreview"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-ghost btn-icon copy-button" id="copyButton" title="コピー">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- External JavaScript -->
+    <script src="translator.js"></script>
+</body>
+</html>
