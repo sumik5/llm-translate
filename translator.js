@@ -7,7 +7,7 @@ async function loadPromptConfig() {
     const isFileProtocol = window.location.protocol === 'file:';
     
     if (isFileProtocol) {
-        console.log('Running from file:// protocol, using default prompts');
+        // console.log('Running from file:// protocol, using default prompts');
         promptConfig = getDefaultPromptConfig();
         // API設定の適用
         if (promptConfig.api && apiUrl) {
@@ -626,35 +626,37 @@ function preprocessMarkdownCodeBlocks(markdown) {
 function postProcessTranslation(text) {
     if (!text) return text;
     
+    // まず連続する```を削除
+    text = text.replace(/```\s*\n\s*```/g, '```');
+    
     // コードブロックの修復と終了判定を強化
     const lines = text.split('\n');
     let processedLines = [];
     let inCodeBlock = false;
     let codeBlockStartIndex = -1;
-    let codeBlockLang = '';
+    let lastClosedBlockIndex = -1;
     
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         const trimmedLine = line.trim();
         
+        // 空の```行をスキップ（直前にコードブロックが閉じられた場合）
+        if (trimmedLine === '```' && !inCodeBlock && i === lastClosedBlockIndex + 1) {
+            // 重複する閉じタグをスキップ
+            continue;
+        }
+        
         // コードブロックの開始を検出
         if (trimmedLine.startsWith('```') && !inCodeBlock) {
             inCodeBlock = true;
             codeBlockStartIndex = i;
-            // 言語指定を保持
-            codeBlockLang = trimmedLine.substring(3).trim();
             processedLines.push(line);
         }
-        // コードブロックの終了を検出（```のみの行）
-        else if ((trimmedLine === '```' || trimmedLine.startsWith('```')) && inCodeBlock && i > codeBlockStartIndex) {
+        // コードブロックの終了を検出
+        else if (trimmedLine === '```' && inCodeBlock && i > codeBlockStartIndex) {
             inCodeBlock = false;
-            // 終了タグを確実に```だけにする
+            lastClosedBlockIndex = i;
             processedLines.push('```');
-            // コードブロック後に空行を追加（必要な場合）
-            if (i < lines.length - 1 && lines[i + 1].trim() !== '') {
-                processedLines.push('');
-            }
-            codeBlockLang = '';
         }
         // 通常の行
         else {
@@ -665,9 +667,7 @@ function postProcessTranslation(text) {
     // 未閉じのコードブロックがある場合
     if (inCodeBlock) {
         console.warn('Unclosed code block detected, auto-closing');
-        // 自動的に閉じる
         processedLines.push('```');
-        processedLines.push('');
     }
     
     // 連続する空行を削減（ただしコードブロック内は除く）
@@ -694,7 +694,11 @@ function postProcessTranslation(text) {
         }
     }
     
-    return finalLines.join('\n');
+    // 最後にもう一度、連続する```を確認して削除
+    let result = finalLines.join('\n');
+    result = result.replace(/```\s*\n\s*```/g, '```');
+    
+    return result;
 }
 
 // HTMLプレビューを更新
@@ -947,7 +951,7 @@ function splitTextIntoChunks(text, maxTokens = null) {
             
             // コードブロック内の場合、最大トークン数を超えても続ける（ただし安全な上限まで）
             if (inCodeBlock && currentTokens > maxTokens * 1.5) {
-                console.warn('Large code block detected, may need splitting');
+                // console.warn('Large code block detected, may need splitting');
             }
         }
     }
@@ -1263,6 +1267,51 @@ function hideError() {
     errorMessage.classList.remove('show');
 }
 
+// ページ離脱確認の処理
+let hasUnsavedChanges = false;
+
+// 入力内容の変更を監視
+function markAsChanged() {
+    hasUnsavedChanges = true;
+}
+
+// 入力テキストや翻訳結果の変更を監視
+inputText.addEventListener('input', markAsChanged);
+outputText.addEventListener('input', markAsChanged);
+
+// ファイルアップロード時も変更としてマーク
+fileInput.addEventListener('change', markAsChanged);
+
+// 翻訳完了時も変更としてマーク
+translateBtn.addEventListener('click', () => {
+    // 翻訳処理の後にhasUnsavedChangesがtrueになるようにする
+    setTimeout(markAsChanged, 100);
+});
+
+// ページ離脱時の確認
+window.addEventListener('beforeunload', (event) => {
+    // 入力内容または翻訳結果がある場合に確認
+    if (hasUnsavedChanges || inputText.value.trim() || outputText.value.trim()) {
+        const confirmationMessage = '翻訳内容が失われる可能性があります。このページを離れてもよろしいですか？';
+        event.returnValue = confirmationMessage;
+        return confirmationMessage;
+    }
+});
+
+// popstateイベント（ブラウザの戻る/進むボタン）の処理
+window.addEventListener('popstate', (event) => {
+    if (hasUnsavedChanges || inputText.value.trim() || outputText.value.trim()) {
+        if (!confirm('翻訳内容が失われる可能性があります。このページを離れてもよろしいですか？')) {
+            // キャンセルされた場合、履歴を元に戻す
+            window.history.pushState(null, '', window.location.href);
+            event.preventDefault();
+        }
+    }
+});
+
+// 初期状態を履歴に追加（戻る/進むボタンの検知用）
+window.history.pushState(null, '', window.location.href);
+
 // ページ読み込み時
 window.addEventListener('DOMContentLoaded', async () => {
     await updateModelDropdown();
@@ -1279,5 +1328,15 @@ window.addEventListener('DOMContentLoaded', async () => {
     // API URL変更時にモデル一覧を更新
     apiUrl.addEventListener('change', async () => {
         await updateModelDropdown();
+    });
+    
+    // HTMLダウンロード時やコピー時は変更を保存済みとみなす
+    saveHtmlBtn.addEventListener('click', () => {
+        hasUnsavedChanges = false;
+    });
+    
+    copyButton.addEventListener('click', () => {
+        // コピー成功時は一時的に未保存フラグをリセット（オプション）
+        // hasUnsavedChanges = false;
     });
 });
