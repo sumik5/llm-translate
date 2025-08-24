@@ -25,6 +25,7 @@ jobs:
           cp translator.css llm-translator/
           cp prompts.json llm-translator/
           cp README.md llm-translator/
+          cp LICENSE llm-translator/
       
       - name: Create ZIP archive
         run: zip -r llm-translator-${{ github.ref_name }}.zip llm-translator/
@@ -46,6 +47,7 @@ jobs:
             - `translator.css` - スタイルシート
             - `prompts.json` - 翻訳プロンプト設定
             - `README.md` - ドキュメント
+            - `LICENSE` - MITライセンス
             
             ### 機能
             - 使用するLLMモデルに応じた多言語翻訳
