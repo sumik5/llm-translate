@@ -316,7 +316,8 @@ body {
 }
 
 .panel-header {
-    padding: 0.75rem 1rem;
+    height: 48px; /* 固定高さを設定 */
+    padding: 0 1rem;
     border-bottom: 1px solid hsl(var(--border));
     background: hsl(var(--muted) / 0.5);
     display: flex;
@@ -334,6 +335,7 @@ body {
 .panel-info {
     font-size: 0.75rem;
     color: hsl(var(--muted-foreground));
+    margin-right: 3rem; /* コピーボタンと重ならないように余白を追加 */
 }
 
 /* Tabs - shadcn/ui style */
@@ -346,13 +348,11 @@ body {
 
 .tabs-list {
     display: inline-flex;
-    height: 2.5rem;
+    height: 32px; /* 固定高さを設定 */
     align-items: center;
     justify-content: flex-start;
-    padding: 0.25rem;
-    background: hsl(var(--muted));
-    border-radius: calc(var(--radius) - 2px);
-    gap: 0.25rem;
+    background: transparent;
+    gap: 0.5rem;
 }
 
 .tabs-trigger {
@@ -360,14 +360,14 @@ body {
     align-items: center;
     justify-content: center;
     white-space: nowrap;
-    padding: 0 0.75rem;
-    height: 2rem;
+    padding: 0 1rem;
+    height: 32px;
     font-size: 0.875rem;
     font-weight: 500;
-    border-radius: calc(var(--radius) - 4px);
     background: transparent;
     color: hsl(var(--muted-foreground));
     border: none;
+    border-bottom: 2px solid transparent;
     cursor: pointer;
     transition: all 0.15s;
 }
@@ -377,9 +377,8 @@ body {
 }
 
 .tabs-trigger[data-state="active"] {
-    background: hsl(var(--background));
     color: hsl(var(--foreground));
-    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    border-bottom-color: hsl(var(--primary));
 }
 
 .tabs-content {

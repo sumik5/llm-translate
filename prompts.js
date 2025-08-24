@@ -1,4 +1,6 @@
-{
+// prompts.jsonの内容をJavaScript変数として定義
+// file://プロトコルでも読み込み可能にするため
+window.PROMPT_CONFIG = {
   "translation": {
     "system": "あなたは優秀な翻訳者です。",
     "markdown": {
@@ -82,7 +84,7 @@
     "defaultEndpoint": "http://127.0.0.1:1234",
     "defaultModel": "local-model",
     "temperature": 0.3,
-    "maxTokens": 16000,
-    "chunkMaxTokens": 12000
+    "maxTokens": 10000,
+    "chunkMaxTokens": 5000 
   }
-}
+};
