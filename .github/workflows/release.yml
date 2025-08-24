@@ -23,7 +23,7 @@ jobs:
           cp translator.html llm-translator/
           cp translator.js llm-translator/
           cp translator.css llm-translator/
-          cp prompts.json llm-translator/
+          cp prompts.js llm-translator/
           cp README.md llm-translator/
           cp LICENSE llm-translator/
       
@@ -42,16 +42,17 @@ jobs:
             - `translator.html` - メインHTMLファイル
             - `translator.js` - JavaScript処理ロジック
             - `translator.css` - スタイルシート
-            - `prompts.json` - 翻訳プロンプト設定
+            - `prompts.js` - 翻訳プロンプト設定
             - `README.md` - ドキュメント
             - `LICENSE` - MITライセンス
             
             ### 機能
             - 使用するLLMモデルに応じた多言語翻訳
-            - EPUBファイル対応
-            - テキストファイル対応
+            - EPUB/PDF/テキスト/Markdownファイル対応
             - 大規模ドキュメント用のチャンク分割処理
             - LM Studioのローカルモデルとの連携
+            - 翻訳中の中止機能
+            - Markdownプレビュー機能
             
             ### 使い方
             1. ZIPファイルをダウンロードして解凍
