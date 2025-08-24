@@ -5,11 +5,11 @@ window.PROMPT_CONFIG = {
     "system": "あなたは優秀な翻訳者です。",
     "markdown": {
       "instruction": "Markdown形式を保持したまま翻訳してください。以下の規則を厳守してください：\n1. コードブロック（```で囲まれた部分）は開始タグと終了タグを必ず保持する\n2. コードブロック内のプログラムコードは変更しない（変数名、関数名、キーワードなど）\n3. コードブロック内のコメントと文字列リテラルのみ翻訳する\n4. コードブロックは必ず```で開始し、```で終了する\n5. リンク、見出しなどの構造も維持する",
-      "template": "{system}\n以下のテキストを{targetLanguage}に翻訳してください。\n{instruction}\n原文の意味を正確に保ち、自然な{targetLanguage}で表現してください。翻訳結果のみを出力し、説明は不要です。\n\n原文:\n{text}\n\n翻訳:"
+      "template": "{system}\n以下のテキストを{targetLanguage}に翻訳してください。\n{instruction}\n原文の意味を正確に保ち、自然な{targetLanguage}で表現してください。\n\n原文:\n{text}\n\n翻訳:"
     },
     "plain": {
       "instruction": "プレーンテキストとして翻訳してください。",
-      "template": "{system}\n以下のテキストを{targetLanguage}に翻訳してください。\n{instruction}\n原文の意味を正確に保ち、自然な{targetLanguage}で表現してください。翻訳結果のみを出力し、説明は不要です。\n\n原文:\n{text}\n\n翻訳:"
+      "template": "{system}\n以下のテキストを{targetLanguage}に翻訳してください。\n{instruction}\n原文の意味を正確に保ち、自然な{targetLanguage}で表現してください。\n\n原文:\n{text}\n\n翻訳:"
     }
   },
   "codeBlockRules": {

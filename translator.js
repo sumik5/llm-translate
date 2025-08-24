@@ -575,12 +575,14 @@ class PDFProcessor {
 class TextProcessor {
     static estimateTokens(text) {
         // 日本語の文字カウント（ひらがな、カタカナ、漢字）
-        const japaneseChars = (text.match(/[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g) || []).length;
-        // 英数字と記号のカウント
-        const asciiChars = (text.match(/[\x00-\x7F]/g) || []).length;
+        const japaneseChars = (text.match(/[\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf]/g) || []).length;
+        // 英単語のカウント
+        const englishWords = (text.match(/[a-zA-Z]+/g) || []).length;
+        // その他の文字
+        const otherChars = text.length - japaneseChars - englishWords;
         
-        // 日本語は1文字≒1トークン、英語は4文字≒1トークンとして推定
-        return Math.ceil(japaneseChars + (asciiChars / 4));
+        // バックアップファイルと同じ計算式を使用（実績のある高速な設定）
+        return Math.ceil(japaneseChars * 2 + englishWords * 1.3 + otherChars * 0.5);
     }
 
     static splitTextIntoChunks(text, maxTokens = 12000) {
@@ -620,37 +622,34 @@ class TextProcessor {
     static postProcessTranslation(text) {
         if (!text) return text;
         
-        // Remove consecutive code block markers
-        text = text.replace(/```\s*\n\s*```/g, '```');
-        
         const lines = text.split('\n');
         const processedLines = [];
         let inCodeBlock = false;
-        let codeBlockStartIndex = -1;
-        let lastClosedBlockIndex = -1;
+        let codeBlockLanguage = '';
         
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
             const trimmedLine = line.trim();
             
-            // Skip duplicate closing tags
-            if (trimmedLine === '```' && !inCodeBlock && i === lastClosedBlockIndex + 1) {
-                continue;
-            }
-            
+            // コードブロックの開始を検出（言語指定の有無に関わらず）
             if (trimmedLine.startsWith('```') && !inCodeBlock) {
                 inCodeBlock = true;
-                codeBlockStartIndex = i;
+                codeBlockLanguage = trimmedLine.substring(3).trim();
                 processedLines.push(line);
-            } else if (trimmedLine === '```' && inCodeBlock && i > codeBlockStartIndex) {
+            }
+            // コードブロックの終了を検出（```のみの行、または```で始まる行）
+            else if ((trimmedLine === '```' || trimmedLine.startsWith('```')) && inCodeBlock) {
                 inCodeBlock = false;
-                lastClosedBlockIndex = i;
+                codeBlockLanguage = '';
+                // 必ず```だけの行にする
                 processedLines.push('```');
-            } else {
+            }
+            else {
                 processedLines.push(line);
             }
         }
         
+        // 未閉じのコードブロックがある場合は閉じる
         if (inCodeBlock) {
             processedLines.push('```');
         }
