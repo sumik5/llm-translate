@@ -285,6 +285,17 @@ body {
     color: hsl(var(--accent-foreground));
 }
 
+.btn-primary.sync-disabled {
+    opacity: 0.5;
+    background: hsl(var(--muted));
+    color: hsl(var(--muted-foreground));
+}
+
+.btn-primary.sync-disabled:hover {
+    background: hsl(var(--muted));
+    color: hsl(var(--muted-foreground));
+}
+
 .btn-icon {
     width: 2.25rem;
     padding: 0;
@@ -647,18 +658,6 @@ body {
 }
 
 /* Copy Button */
-.copy-button {
-    position: absolute;
-    top: 0.75rem;
-    right: 0.75rem;
-    opacity: 0;
-    transition: opacity 0.2s;
-}
-
-.editor-panel:hover .copy-button {
-    opacity: 1;
-}
-
 .copy-button.copied {
     color: hsl(var(--primary));
 }
@@ -680,5 +679,113 @@ body {
     
     .select, .input {
         width: 100%;
+    }
+}
+
+/* ==================== 段落機能のスタイル ==================== */
+
+/* 段落同期ボタンのスタイル */
+.scroll-sync-btn.paragraph-sync {
+    background-color: hsl(var(--primary)) !important;
+    color: hsl(var(--primary-foreground)) !important;
+    border: 1px solid hsl(var(--primary));
+    position: relative;
+}
+
+.scroll-sync-btn.paragraph-sync::after {
+    content: " 段落";
+    font-size: 0.75em;
+    opacity: 0.9;
+    font-weight: 500;
+}
+
+/* 段落同期ボタンのホバー効果 */
+.scroll-sync-btn.paragraph-sync:hover {
+    background-color: hsl(var(--primary) / 0.9) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px hsl(var(--primary) / 0.3);
+}
+
+/* 段落機能無効時のスタイル */
+.paragraph-features-disabled .scroll-sync-btn.paragraph-sync {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.paragraph-features-disabled .scroll-sync-btn.paragraph-sync:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+/* 翻訳中の段落解析表示 */
+.paragraph-analysis-indicator {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 0.75rem;
+    color: hsl(var(--muted-foreground));
+    pointer-events: none;
+}
+
+/* 段落数表示 */
+.paragraph-count {
+    font-size: 0.7rem;
+    color: hsl(var(--muted-foreground));
+    margin-top: 0.25rem;
+}
+
+/* 段落同期の状態表示 */
+.sync-status {
+    position: absolute;
+    bottom: 0.5rem;
+    right: 0.5rem;
+    font-size: 0.6rem;
+    color: hsl(var(--muted-foreground));
+    background: hsl(var(--background) / 0.8);
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+    backdrop-filter: blur(4px);
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.editor-panel:hover .sync-status {
+    opacity: 1;
+}
+
+/* 段落境界の視覚化（将来の拡張用） */
+.paragraph-boundary {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: hsl(var(--border));
+    opacity: 0.3;
+    transition: all 0.2s ease;
+    pointer-events: none;
+}
+
+.paragraph-boundary.active {
+    height: 2px !important;
+    opacity: 0.8 !important;
+    background-color: hsl(var(--primary)) !important;
+    box-shadow: 0 0 4px hsl(var(--primary) / 0.4);
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 768px) {
+    .scroll-sync-btn.paragraph-sync::after {
+        content: "";
+    }
+    
+    .paragraph-count {
+        font-size: 0.65rem;
+    }
+    
+    .sync-status {
+        font-size: 0.55rem;
+        bottom: 0.25rem;
+        right: 0.25rem;
     }
 }

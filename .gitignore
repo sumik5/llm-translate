@@ -1,2 +1,7 @@
 *.bak
 .serena
+node_modules/
+package-lock.json
+translator.bundle.js
+translator.min.js
+build.js
