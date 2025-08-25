@@ -15,17 +15,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Build and minify JavaScript
+        run: npm run build
+      
       - name: Create directory for artifact
         run: mkdir -p llm-translator
       
       - name: Copy files to artifact directory
         run: |
-          cp translator.html llm-translator/
-          cp translator.js llm-translator/
+          cp translator.prod.html llm-translator/translator.html
+          cp translator.min.js llm-translator/
           cp translator.css llm-translator/
           cp prompts.js llm-translator/
-          cp README.md llm-translator/
-          cp LICENSE llm-translator/
       
       - name: Create ZIP archive
         run: zip -r llm-translator-${{ github.ref_name }}.zip llm-translator/
@@ -40,11 +49,9 @@ jobs:
             
             ### 含まれるファイル
             - `translator.html` - メインHTMLファイル
-            - `translator.js` - JavaScript処理ロジック
+            - `translator.min.js` - 最適化されたJavaScript（minified）
             - `translator.css` - スタイルシート
             - `prompts.js` - 翻訳プロンプト設定
-            - `README.md` - ドキュメント
-            - `LICENSE` - MITライセンス
             
             ### 機能
             - 使用するLLMモデルに応じた多言語翻訳

@@ -2,14 +2,14 @@
 // file://プロトコルでも読み込み可能にするため
 window.PROMPT_CONFIG = {
   "translation": {
-    "system": "あなたは優秀な翻訳者です。",
+    "system": "Translate to {targetLanguage}. Keep markdown format. Translate only comments and strings in code blocks.",
     "markdown": {
-      "instruction": "Markdown形式を保持したまま翻訳してください。以下の規則を厳守してください：\n1. コードブロック（```で囲まれた部分）は開始タグと終了タグを必ず保持する\n2. コードブロック内のプログラムコードは変更しない（変数名、関数名、キーワードなど）\n3. コードブロック内のコメントと文字列リテラルのみ翻訳する\n4. コードブロックは必ず```で開始し、```で終了する\n5. リンク、見出しなどの構造も維持する",
-      "template": "{system}\n以下のテキストを{targetLanguage}に翻訳してください。\n{instruction}\n原文の意味を正確に保ち、自然な{targetLanguage}で表現してください。\n\n原文:\n{text}\n\n翻訳:"
+      "instruction": "",
+      "template": "{system}\n\n{text}"
     },
     "plain": {
       "instruction": "プレーンテキストとして翻訳してください。",
-      "template": "{system}\n以下のテキストを{targetLanguage}に翻訳してください。\n{instruction}\n原文の意味を正確に保ち、自然な{targetLanguage}で表現してください。\n\n原文:\n{text}\n\n翻訳:"
+      "template": "{system}\n以下のテキストを{targetLanguage}に翻訳してください。\n{instruction}\n原文の意味を正確に保ち、自然な{targetLanguage}で表現してください。\n\n原文:\n{text}"
     }
   },
   "codeBlockRules": {
