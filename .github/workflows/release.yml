@@ -15,6 +15,43 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
+      - name: Extract changelog for current version
+        id: changelog
+        run: |
+          # 現在のタグを取得
+          CURRENT_TAG="${{ github.ref_name }}"
+          
+          # CHANGELOGファイルが存在するか確認
+          if [ ! -f "CHANGELOG.md" ]; then
+            echo "CHANGELOG.md not found. Using default message."
+            echo "changelog=このバージョンの変更履歴はCHANGELOG.mdに記載されていません。" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # CHANGELOGから現在のバージョンのセクションを抽出
+          # ## [v1.0.0] のような形式から次の ## までを取得
+          echo "Extracting changelog for ${CURRENT_TAG}"
+          
+          # sedを使って該当バージョンのセクションを抽出
+          CHANGELOG=$(sed -n "/^## \[${CURRENT_TAG}\]/,/^## \[/p" CHANGELOG.md | sed '$d' | tail -n +2)
+          
+          # 見つからない場合は、バージョン番号なしの形式も試す
+          if [ -z "$CHANGELOG" ]; then
+            VERSION_WITHOUT_V=${CURRENT_TAG#v}
+            CHANGELOG=$(sed -n "/^## \[${VERSION_WITHOUT_V}\]/,/^## \[/p" CHANGELOG.md | sed '$d' | tail -n +2)
+          fi
+          
+          # それでも見つからない場合
+          if [ -z "$CHANGELOG" ]; then
+            echo "No changelog entry found for ${CURRENT_TAG}"
+            CHANGELOG="このバージョンの変更履歴はCHANGELOG.mdに記載されていません。"
+          fi
+          
+          # 複数行の出力をGitHub Outputに保存
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "${CHANGELOG}" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -47,13 +84,18 @@ jobs:
           body: |
             ## LLM Translator ${{ github.ref_name }}
             
-            ### 含まれるファイル
+            ### 🆕 変更履歴
+            ${{ steps.changelog.outputs.changelog }}
+            
+            ---
+            
+            ### 📦 含まれるファイル
             - `translator.html` - メインHTMLファイル
             - `translator.min.js` - 最適化されたJavaScript（minified）
             - `translator.css` - スタイルシート
             - `prompts.js` - 翻訳プロンプト設定
             
-            ### 機能
+            ### ✨ 主な機能
             - 使用するLLMモデルに応じた多言語翻訳
             - EPUB/PDF/テキスト/Markdownファイル対応
             - 大規模ドキュメント用のチャンク分割処理
@@ -61,7 +103,7 @@ jobs:
             - 翻訳中の中止機能
             - Markdownプレビュー機能
             
-            ### 使い方
+            ### 🚀 使い方
             1. ZIPファイルをダウンロードして解凍
             2. ブラウザで`translator.html`を開く
             3. LM Studioをポート1234でローカルサーバーとして起動
