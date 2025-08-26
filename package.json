@@ -1,13 +1,28 @@
 {
   "name": "llm-translate",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "LLM Translation Tool",
   "private": true,
+  "type": "module",
   "scripts": {
-    "build": "node build.js",
-    "minify": "node build.js"
+    "build": "npm run type-check && node esbuild.config.js",
+    "build:old": "node build.js",
+    "build:watch": "node esbuild.config.js --watch",
+    "type-check": "tsc --noEmit",
+    "dev": "node esbuild.config.js --watch",
+    "dev:full": "python3 -m http.server 8000 & npm run dev",
+    "lint": "eslint src/**/*.ts --ext .ts",
+    "lint:fix": "eslint src/**/*.ts --ext .ts --fix",
+    "clean": "rm -rf dist/ translator.bundle.js translator.min.js",
+    "serve": "python3 -m http.server 8000"
   },
   "devDependencies": {
-    "terser": "^5.24.0"
+    "@types/node": "^20.10.6",
+    "@types/web": "^0.0.125",
+    "@typescript-eslint/eslint-plugin": "^6.18.1",
+    "@typescript-eslint/parser": "^6.18.1",
+    "esbuild": "^0.25.9",
+    "eslint": "^8.56.0",
+    "typescript": "^5.9.2"
   }
 }

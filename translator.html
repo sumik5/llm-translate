@@ -90,23 +90,12 @@
 
                 <div class="control-group">
                     <label class="label" for="chunkSize">チャンクサイズ</label>
-                    <input type="number" id="chunkSize" class="input" value="500" min="100" max="10000" style="width: 7rem;">
+                    <input type="number" id="chunkSize" class="input" value="1000" min="100" max="10000" style="width: 7rem;">
                 </div>
 
                 <div class="control-group">
                     <label class="label" for="fileInput">ファイル選択 (EPUB/PDF)</label>
                     <input type="file" id="fileInput" class="input" accept=".epub,.pdf,.txt,.md" style="padding: 0.5rem;">
-                </div>
-
-                <div class="control-group">
-                    <label class="label">&nbsp;</label>
-                    <button class="btn btn-secondary" id="copyButton" title="翻訳結果をコピー" style="padding: 0.5rem 1rem; font-size: 0.875rem; display: flex; align-items: center;">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                        </svg>
-                        <span style="margin-left: 0.25rem;">コピー</span>
-                    </button>
                 </div>
 
                 <div class="control-group" style="flex: 1;">
@@ -169,10 +158,41 @@ console.log('Hello World');
         </main>
     </div>
 
+    <!-- Export Modal -->
+    <div id="exportModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">エクスポート形式を選択</h2>
+            </div>
+            <div class="modal-body">
+                <div class="export-options">
+                    <label class="export-option">
+                        <input type="radio" name="exportType" value="translation-only" checked>
+                        <div class="export-option-content">
+                            <div class="export-option-title">翻訳のみ</div>
+                            <div class="export-option-description">翻訳結果のみを出力します</div>
+                        </div>
+                    </label>
+                    <label class="export-option">
+                        <input type="radio" name="exportType" value="side-by-side">
+                        <div class="export-option-content">
+                            <div class="export-option-title">原文・翻訳対照</div>
+                            <div class="export-option-description">原文と翻訳を左右に並べて表示します</div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelExport">キャンセル</button>
+                <button class="btn btn-primary" id="confirmExport">エクスポート</button>
+            </div>
+        </div>
+    </div>
+
     <!-- External JavaScript -->
     <script src="prompts.js"></script>
-    <!-- Development: Use individual modules -->
-    <script type="module" src="js/translator-app.js?v=20250126"></script>
+    <!-- Development: Use bundled version -->
+    <script src="translator.bundle.js"></script>
     <!-- Production: Use minified bundle (uncomment for production) -->
     <!-- <script src="translator.min.js"></script> -->
     
