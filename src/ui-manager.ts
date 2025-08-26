@@ -2,6 +2,7 @@
 import { DOMController } from './dom-controller.js';
 import { StateManager } from './state-manager.js';
 import { HTMLGenerator } from './html-generator.js';
+import { MarkdownFormatter } from './markdown-formatter.js';
 import type MarkdownProcessor from './markdown-processor.js';
 import type { ImageManager } from './image-manager.js';
 
@@ -101,9 +102,9 @@ export class UIManager {
         this.dom.hide('progressInfo');
     }
 
-    updatePreview(text: string, markdownProcessor: MarkdownProcessor): void {
+    updatePreview(text: string, _markdownProcessor: MarkdownProcessor): void {
         if (text) {
-            const html = markdownProcessor.toHtml(text);
+            const html = MarkdownFormatter.toHtml(text);
             this.dom.setHtml('markdownPreview', html);
             this.state.set('translatedHtml', html);
             
@@ -152,12 +153,12 @@ export class UIManager {
         return this.state.get('hasUnsavedChanges');
     }
 
-    downloadHtml(markdownProcessor: MarkdownProcessor, imageManager: ImageManager | null = null): void {
+    downloadHtml(_markdownProcessor: MarkdownProcessor, imageManager: ImageManager | null = null): void {
         // Show modal instead of directly downloading
-        this.showExportModal(markdownProcessor, imageManager);
+        this.showExportModal(_markdownProcessor, imageManager);
     }
 
-    private showExportModal(markdownProcessor: MarkdownProcessor, imageManager: ImageManager | null = null): void {
+    private showExportModal(_markdownProcessor: MarkdownProcessor, imageManager: ImageManager | null = null): void {
         const modal = document.getElementById('exportModal');
         if (!modal) return;
         
@@ -177,7 +178,7 @@ export class UIManager {
             const selectedOption = document.querySelector('input[name="exportType"]:checked') as HTMLInputElement;
             const exportType = selectedOption ? selectedOption.value : 'translation-only';
             
-            this.performExport(markdownProcessor, exportType, imageManager);
+            this.performExport(_markdownProcessor, exportType, imageManager);
             
             modal.classList.remove('active');
             if (cancelBtn) cancelBtn.removeEventListener('click', handleCancel);
@@ -196,7 +197,7 @@ export class UIManager {
     }
     
     private performExport(
-        markdownProcessor: MarkdownProcessor, 
+        _markdownProcessor: MarkdownProcessor, 
         exportType: string, 
         imageManager: ImageManager | null = null
     ): void {
@@ -221,7 +222,7 @@ export class UIManager {
             baseFilename = fileInput.files[0].name.replace(/\.[^/.]+$/, '');
         }
         
-        const translatedHtml = markdownProcessor.toHtml(translatedText);
+        const translatedHtml = MarkdownFormatter.toHtml(translatedText);
         let htmlContent: string;
         let filename: string;
         
@@ -238,7 +239,7 @@ export class UIManager {
         } else {
             // Export side-by-side
             const originalHtml = originalText ? 
-                markdownProcessor.toHtml(originalText) : null;
+                MarkdownFormatter.toHtml(originalText) : null;
             
             htmlContent = this.htmlGenerator.generateTranslationHtml(
                 originalHtml, 
