@@ -1,4 +1,19 @@
 // ==================== Markdown Formatter ====================
+
+
+// Global marked library type - declare outside to avoid conflicts
+declare const marked: {
+    parse: (src: string) => string;
+    setOptions?: (options: any) => void;
+    Renderer?: any;
+};
+
+interface ImageMatch {
+    placeholder: string;
+    alt: string;
+    src: string;
+}
+
 /**
  * Markdown整形のユーティリティクラス
  * 各種ファイルプロセッサーで共通使用される
@@ -112,5 +127,175 @@ export class MarkdownFormatter {
         }
         // 奇数回なら開始、偶数回なら終了
         return codeBlockCount % 2 === 0;
+    }
+
+    /**
+     * MarkdownをHTMLに変換
+     * @param markdown - 変換対象のMarkdown
+     * @returns HTML文字列
+     */
+    static toHtml(markdown: string): string {
+        try {
+            const sanitized = this.sanitizeForMarked(markdown);
+            const preprocessed = this.preprocessCodeBlocks(sanitized);
+            
+            if (preprocessed.includes('data:image/') || preprocessed.includes('data:application/octet-stream')) {
+                return this.convertBase64ImagesToHtml(preprocessed);
+            }
+            
+            return marked.parse(preprocessed);
+        } catch (error) {
+            console.error('Markdown parsing error:', error);
+            return this.fallbackToPlainText(markdown);
+        }
+    }
+
+    /**
+     * HTMLエスケープ
+     * @param text - エスケープ対象のテキスト
+     * @returns エスケープ済みテキスト
+     */
+    static escapeHtml(text: string): string {
+        const map: { [key: string]: string } = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return text.replace(/[&<>"']/g, m => map[m] || m);
+    }
+
+    /**
+     * marked.js用にMarkdownをサニタイズ
+     * @param text - サニタイズ対象のテキスト
+     * @returns サニタイズ済みテキスト
+     */
+    static sanitizeForMarked(text: string): string {
+        // まず画像プレースホルダーを一時的に保護
+        const imagePlaceholders: string[] = [];
+        const imageRegex = /\[\[IMG_\d+\]\]/g;
+        let match: RegExpExecArray | null;
+        while ((match = imageRegex.exec(text)) !== null) {
+            imagePlaceholders.push(match[0]);
+        }
+        
+        // 画像プレースホルダーを一時的なマーカーに置換
+        let sanitized = text;
+        imagePlaceholders.forEach((placeholder, index) => {
+            sanitized = sanitized.replace(placeholder, `__IMAGE_PLACEHOLDER_${index}__`);
+        });
+        
+        // lheadingのエラーを防ぐため、問題のあるパターンを事前に処理
+        // 行が文字で始まり、次の行が=か-の連続の場合の処理
+        sanitized = sanitized.replace(/^(.+)\n(={2,})\s*$/gm, (_match, p1, _p2) => {
+            return `# ${p1}\n`;
+        });
+        sanitized = sanitized.replace(/^(.+)\n(-{2,})\s*$/gm, (_match, p1, _p2) => {
+            return `## ${p1}\n`;
+        });
+        
+        // 空行の連続を制限（最大2つまで）
+        sanitized = sanitized.replace(/\n{3,}/g, '\n\n');
+        
+        // 独立した = や - の行を水平線に変換
+        sanitized = sanitized.replace(/^\s*(={3,})\s*$/gm, '\n---\n');
+        sanitized = sanitized.replace(/^\s*(-{3,})\s*$/gm, '\n---\n');
+        
+        // 不正な文字を除去
+        // eslint-disable-next-line no-control-regex
+        sanitized = sanitized.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+        
+        // 行末の空白を削除
+        sanitized = sanitized.replace(/[ \t]+$/gm, '');
+        
+        // 画像プレースホルダーを元に戻す
+        imagePlaceholders.forEach((placeholder, index) => {
+            sanitized = sanitized.replace(`__IMAGE_PLACEHOLDER_${index}__`, placeholder);
+        });
+        
+        return sanitized;
+    }
+
+    /**
+     * Base64画像をHTMLに変換
+     * @param markdown - 変換対象のMarkdown
+     * @returns HTML文字列
+     */
+    private static convertBase64ImagesToHtml(markdown: string): string {
+        const imageMatches: ImageMatch[] = [];
+        let imageCounter = 0;
+        
+        const processedMarkdown = markdown.replace(
+            /!\[([^\]]*)\]\((data:(?:image\/[^;]+|application\/octet-stream);base64,[^)]+)\)/g,
+            (_match, alt, src): string => {
+                const placeholder = `<!--IMG_PLACEHOLDER_${imageCounter}-->`;
+                imageMatches.push({
+                    placeholder,
+                    alt: alt || '',
+                    src: src
+                });
+                imageCounter++;
+                return placeholder;
+            }
+        );
+        
+        let html = marked.parse(processedMarkdown);
+        
+        imageMatches.forEach(({ placeholder, alt, src }) => {
+            const escapedAlt = this.escapeHtml(alt);
+            const imgTag = `<img src="${src}" alt="${escapedAlt}" style="max-width: 100%; height: auto; display: block; margin: 10px auto;" />`;
+            html = html.replace(placeholder, imgTag);
+        });
+        
+        return html;
+    }
+
+    /**
+     * プレーンテキストをHTMLに変換（フォールバック）
+     * @param text - 変換対象のテキスト
+     * @returns HTML文字列
+     */
+    private static fallbackToPlainText(text: string): string {
+        // プレーンテキストをHTMLに変換（改行を保持）
+        const escaped = text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+        
+        // 段落に分割して表示
+        const paragraphs = escaped.split(/\n\n+/);
+        return paragraphs.map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('\n');
+    }
+
+    /**
+     * コードブロックの前処理
+     * @param markdown - 処理対象のMarkdown
+     * @returns 処理後のMarkdown
+     */
+    private static preprocessCodeBlocks(markdown: string): string {
+        const lines = markdown.split('\n');
+        const processedLines: string[] = [];
+        let inCodeBlock = false;
+        
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            if (!line) continue;
+            
+            if (line.trim().startsWith('```')) {
+                inCodeBlock = !inCodeBlock;
+                processedLines.push(line || '');
+                
+                if (!inCodeBlock && i < lines.length - 1 && lines[i + 1]?.trim() !== '') {
+                    processedLines.push('');
+                }
+            } else {
+                processedLines.push(line || '');
+            }
+        }
+        
+        return processedLines.join('\n');
     }
 }
