@@ -3,4 +3,6 @@
 node_modules/
 package-lock.json
 translator.bundle.js
+translator.bundle.js.map
 translator.min.js
+dist/

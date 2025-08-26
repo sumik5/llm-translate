@@ -1,17 +1,51 @@
 // ==================== Text Processing Utilities ====================
 import { TOKEN_ESTIMATION, REGEX_PATTERNS, UNWANTED_PREFIXES, ERROR_MESSAGES } from './constants.js';
+// import type { ChunkType } from './types/index.js'; // Unused import commented out
 
+/**
+ * Interface for validation result
+ */
+interface ValidationResult {
+    valid: boolean;
+    errors: string[];
+    warnings: string[];
+    metadata: {
+        length: number;
+        estimatedTokens: number;
+        hasContent: boolean;
+    };
+}
+
+/**
+ * Interface for input validation options
+ */
+interface ValidationOptions {
+    readonly minLength?: number;
+    readonly maxLength?: number;
+    readonly allowEmpty?: boolean;
+    readonly maxTokens?: number;
+}
+
+/**
+ * Text processing utilities class
+ */
 class TextProcessor {
-    static validateInput(text, options = {}) {
+    /**
+     * Validate input text with various constraints
+     * @param text - Text to validate
+     * @param options - Validation options
+     * @returns Validation result object
+     */
+    static validateInput(text: string, options: ValidationOptions = {}): ValidationResult {
         const {
             minLength = 0,
             maxLength = Infinity,
             allowEmpty = false,
-            maxTokens = TOKEN_ESTIMATION.MAX_CHUNK_SIZE
+            maxTokens = TOKEN_ESTIMATION.maxChunkSize
         } = options;
 
         // Validation result object
-        const result = {
+        const result: ValidationResult = {
             valid: true,
             errors: [],
             warnings: [],
@@ -26,7 +60,7 @@ class TextProcessor {
         if (!text || text.trim().length === 0) {
             if (!allowEmpty) {
                 result.valid = false;
-                result.errors.push(ERROR_MESSAGES.NO_TEXT);
+                (result.errors as string[]).push(ERROR_MESSAGES.NO_TEXT);
             }
             return result;
         }
@@ -34,28 +68,34 @@ class TextProcessor {
         // Check length constraints
         if (text.length < minLength) {
             result.valid = false;
-            result.errors.push(`テキストが短すぎます（最小: ${minLength}文字）`);
+            (result.errors as string[]).push(`テキストが短すぎます（最小: ${minLength}文字）`);
         }
 
         if (text.length > maxLength) {
             result.valid = false;
-            result.errors.push(`テキストが長すぎます（最大: ${maxLength}文字）`);
+            (result.errors as string[]).push(`テキストが長すぎます（最大: ${maxLength}文字）`);
         }
 
         // Estimate tokens
         const estimatedTokens = this.estimateTokens(text);
-        result.metadata.estimatedTokens = estimatedTokens;
-        result.metadata.hasContent = text.trim().length > 0;
+        (result.metadata as any).estimatedTokens = estimatedTokens;
+        (result.metadata as any).hasContent = text.trim().length > 0;
 
         // Check token limit
         if (estimatedTokens > maxTokens) {
-            result.warnings.push(`推定トークン数が上限を超えています（${estimatedTokens} > ${maxTokens}）。チャンクに分割されます。`);
+            (result.warnings as string[]).push(`推定トークン数が上限を超えています（${estimatedTokens} > ${maxTokens}）。チャンクに分割されます。`);
         }
 
         return result;
     }
 
-    static estimateTokens(text) {
+    /**
+     * Estimate token count for given text
+     * @param text - Text to analyze
+     * @param targetLanguage - Target language for translation compression
+     * @returns Estimated token count
+     */
+    static estimateTokens(text: string, targetLanguage: string | null = null): number {
         if (!text) return 0;
         
         // Count Japanese characters
@@ -71,15 +111,52 @@ class TextProcessor {
         // Other characters = total - Japanese - English characters (not words)
         const otherChars = text.length - japaneseChars - englishCharCount;
         
-        // Use multipliers from constants
-        return Math.ceil(
-            japaneseChars * TOKEN_ESTIMATION.JAPANESE_MULTIPLIER +
-            englishWords * TOKEN_ESTIMATION.ENGLISH_MULTIPLIER +
-            otherChars * TOKEN_ESTIMATION.OTHER_MULTIPLIER
+        // Calculate base token count
+        let tokenCount = Math.ceil(
+            japaneseChars * TOKEN_ESTIMATION.japaneseMultiplier +
+            englishWords * TOKEN_ESTIMATION.englishMultiplier +
+            otherChars * TOKEN_ESTIMATION.otherMultiplier
         );
+        
+        // Apply translation compression ratio if target language is specified
+        if (targetLanguage) {
+            const compressionRatio = this.getTranslationCompressionRatio(text, targetLanguage);
+            tokenCount = Math.ceil(tokenCount * compressionRatio);
+        }
+        
+        return tokenCount;
+    }
+    
+    /**
+     * Get translation compression ratio based on language pair
+     * @param text - Source text
+     * @param targetLanguage - Target language
+     * @returns Compression ratio
+     */
+    static getTranslationCompressionRatio(text: string, targetLanguage: string): number {
+        // Detect source language (simplified detection)
+        const japaneseChars = (text.match(REGEX_PATTERNS.JAPANESE_CHARS) || []).length;
+        const totalChars = text.length;
+        const isJapaneseSource = (japaneseChars / totalChars) > 0.3;
+        
+        // Determine compression ratio based on language pair
+        if (isJapaneseSource && targetLanguage === '英語') {
+            return TOKEN_ESTIMATION.translationCompressionRatio.JA_TO_EN;
+        } else if (!isJapaneseSource && targetLanguage === '日本語') {
+            return TOKEN_ESTIMATION.translationCompressionRatio.EN_TO_JA;
+        }
+        
+        return TOKEN_ESTIMATION.translationCompressionRatio.DEFAULT;
     }
 
-    static splitTextIntoChunks(text, maxTokens = TOKEN_ESTIMATION.MAX_CHUNK_SIZE) {
+    /**
+     * Split text into manageable chunks
+     * @param text - Text to split
+     * @param maxTokens - Maximum tokens per chunk
+     * @param targetLanguage - Target language for token estimation
+     * @returns Array of text chunks
+     */
+    static splitTextIntoChunks(text: string, maxTokens: number = TOKEN_ESTIMATION.maxChunkSize, targetLanguage: string | null = null): string[] {
         // Validate input before processing
         const validation = this.validateInput(text, { maxTokens: Infinity });
         if (!validation.valid) {
@@ -87,14 +164,14 @@ class TextProcessor {
         }
 
         const lines = text.split(/\r?\n/);
-        const chunks = [];
+        const chunks: string[] = [];
         let currentChunk = '';
         let currentTokens = 0;
         let inCodeBlock = false;
         let codeBlockDepth = 0;
         
         for (const line of lines) {
-            const lineTokens = this.estimateTokens(line);
+            const lineTokens = this.estimateTokens(line, targetLanguage);
             const trimmedLine = line.trim();
             
             // Track code block depth to handle nested or multiple code blocks
@@ -109,11 +186,10 @@ class TextProcessor {
             
             // Check if adding this line would exceed the token limit
             if (currentTokens + lineTokens > maxTokens && currentChunk) {
-                // If we're in a code block, we still need to split eventually
-                // But we try to keep code blocks together if they're not too large
+                // If we're in a code block, we need to be more careful about splitting
                 const shouldSplit = !inCodeBlock || 
-                                   currentTokens > maxTokens * 0.8 || // Already using 80% of limit
-                                   (currentTokens + lineTokens) > maxTokens * 1.5; // Would exceed 150% of limit
+                                   currentTokens > maxTokens * 0.9 || // Already using 90% of limit
+                                   (currentTokens + lineTokens) > maxTokens * 1.2; // Would exceed 120% of limit
                 
                 if (shouldSplit) {
                     chunks.push(this.finalizeChunk(currentChunk, inCodeBlock));
@@ -139,7 +215,13 @@ class TextProcessor {
         return chunks;
     }
 
-    static finalizeChunk(chunk, inCodeBlock) {
+    /**
+     * Finalize chunk by handling unclosed code blocks
+     * @param chunk - Raw chunk text
+     * @param inCodeBlock - Whether currently in a code block
+     * @returns Finalized chunk
+     */
+    static finalizeChunk(chunk: string, inCodeBlock: boolean): string {
         let finalChunk = chunk.trim();
         
         // Close unclosed code block
@@ -150,7 +232,12 @@ class TextProcessor {
         return finalChunk;
     }
 
-    static postProcessTranslation(text) {
+    /**
+     * Post-process translated text to clean up formatting
+     * @param text - Translated text
+     * @returns Cleaned text
+     */
+    static postProcessTranslation(text: string): string {
         if (!text) return text;
         
         // Validate translated text
@@ -192,14 +279,14 @@ class TextProcessor {
             let contentStartIndex = -1;
             
             for (let i = 0; i < lines.length; i++) {
-                const line = lines[i].trim();
+                const line = lines[i]?.trim() || '';
                 // Check for typical last instruction patterns
                 if (line.includes('前置きは絶対に付けない') ||
                     line.includes('翻訳結果のみを出力') ||
-                    (line === '' && i > 0 && lines[i-1].includes('絶対に付けない'))) {
+                    (line === '' && i > 0 && lines[i-1]?.includes('絶対に付けない'))) {
                     contentStartIndex = i + 1;
                     // Skip empty lines after instructions
-                    while (contentStartIndex < lines.length && lines[contentStartIndex].trim() === '') {
+                    while (contentStartIndex < lines.length && lines[contentStartIndex]?.trim() === '') {
                         contentStartIndex++;
                     }
                     break;
@@ -233,24 +320,25 @@ class TextProcessor {
         }
         
         const lines = cleanedText.split('\n');
-        const processedLines = [];
+        const processedLines: string[] = [];
         let inCodeBlock = false;
-        let codeBlockBuffer = [];
-        let codeBlockLanguage = '';
+        // let codeBlockBuffer: string[] = [];
+        // let codeBlockLanguage = '';
         
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
+            if (!line) continue;
             const trimmedLine = line.trim();
             
             // コードブロックの開始を検出
             if (REGEX_PATTERNS.CODE_BLOCK_START.test(trimmedLine) && !inCodeBlock) {
                 // 前の行が空行でない場合は空行を追加
-                if (processedLines.length > 0 && processedLines[processedLines.length - 1].trim() !== '') {
+                if (processedLines.length > 0 && processedLines[processedLines.length - 1]?.trim() !== '') {
                     processedLines.push('');
                 }
                 inCodeBlock = true;
-                codeBlockLanguage = trimmedLine.substring(3).trim();
-                codeBlockBuffer = [];
+                // codeBlockLanguage = trimmedLine.substring(3).trim();
+                // codeBlockBuffer = [];
                 processedLines.push(trimmedLine);
             }
             // コードブロックの終了を検出
@@ -258,31 +346,31 @@ class TextProcessor {
                 inCodeBlock = false;
                 processedLines.push('```');
                 // 次の行が空行でない場合は空行を追加
-                if (i < lines.length - 1 && lines[i + 1].trim() !== '') {
+                if (i < lines.length - 1 && lines[i + 1]?.trim() !== '') {
                     processedLines.push('');
                 }
-                codeBlockBuffer = [];
-                codeBlockLanguage = '';
+                // codeBlockBuffer = [];
+                // codeBlockLanguage = '';
             }
             // コードブロック内の処理
             else if (inCodeBlock) {
-                processedLines.push(line);
+                processedLines.push(line || '');
             }
             // 通常のテキスト処理
             else {
                 // 誤ってコードブロック外に出たコードらしき行を検出
-                const looksLikeCode = REGEX_PATTERNS.CODE_LIKE_LINE.test(line);
+                const looksLikeCode = REGEX_PATTERNS.CODE_LIKE_LINE.test(line || '');
                 
-                if (looksLikeCode && !line.startsWith('#') && !line.startsWith('//')) {
+                if (looksLikeCode && !line?.startsWith('#') && !line?.startsWith('//')) {
                     // コードらしき行が連続している場合、コードブロックとして扱う
-                    if (processedLines.length > 0 && processedLines[processedLines.length - 1].trim() !== '') {
+                    if (processedLines.length > 0 && processedLines[processedLines.length - 1]?.trim() !== '') {
                         processedLines.push('');
                     }
                     processedLines.push('```');
-                    processedLines.push(line);
+                    processedLines.push(line || '');
                     inCodeBlock = true;
                 } else {
-                    processedLines.push(line);
+                    processedLines.push(line || '');
                 }
             }
         }
@@ -294,7 +382,7 @@ class TextProcessor {
         }
         
         // 連続する空行を削除（コードブロック外のみ）
-        const finalLines = [];
+        const finalLines: string[] = [];
         let prevWasEmpty = false;
         let inCode = false;
         
@@ -326,7 +414,12 @@ class TextProcessor {
         return result;
     }
 
-    static detectLanguage(text) {
+    /**
+     * Detect the primary language of text
+     * @param text - Text to analyze
+     * @returns Detected language ('japanese', 'english', 'other', or 'unknown')
+     */
+    static detectLanguage(text: string): string {
         // Simple language detection based on character ratio
         const japaneseChars = (text.match(REGEX_PATTERNS.JAPANESE_CHARS) || []).length;
         const englishWords = (text.match(REGEX_PATTERNS.ENGLISH_WORDS) || []).length;
@@ -343,10 +436,16 @@ class TextProcessor {
         return 'other';
     }
 
-    static sanitizeText(text) {
+    /**
+     * Sanitize text by removing control characters
+     * @param text - Text to sanitize
+     * @returns Sanitized text
+     */
+    static sanitizeText(text: string): string {
         if (!text) return '';
         
         // Remove control characters except newlines and tabs
+        // eslint-disable-next-line no-control-regex
         let sanitized = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
         
         // Normalize whitespace

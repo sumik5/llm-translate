@@ -657,11 +657,6 @@ body {
     display: none;
 }
 
-/* Copy Button */
-.copy-button.copied {
-    color: hsl(var(--primary));
-}
-
 /* Responsive */
 @media (max-width: 768px) {
     .header-controls {
@@ -771,6 +766,99 @@ body {
     opacity: 0.8 !important;
     background-color: hsl(var(--primary)) !important;
     box-shadow: 0 0 4px hsl(var(--primary) / 0.4);
+}
+
+/* Export Modal */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-overlay.active {
+    display: flex;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    max-width: 400px;
+    width: 90%;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.modal-header {
+    margin-bottom: 1rem;
+}
+
+.modal-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: hsl(var(--foreground));
+    margin: 0;
+}
+
+.modal-body {
+    margin-bottom: 1.5rem;
+}
+
+.export-options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.export-option {
+    display: flex;
+    align-items: flex-start;
+    padding: 1rem;
+    border: 1px solid hsl(var(--border));
+    border-radius: 0.375rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.export-option:hover {
+    background-color: hsl(var(--muted));
+    border-color: hsl(var(--primary));
+}
+
+.export-option input[type="radio"] {
+    margin-right: 0.75rem;
+    margin-top: 0.125rem;
+}
+
+.export-option-content {
+    flex: 1;
+}
+
+.export-option-title {
+    font-weight: 500;
+    color: hsl(var(--foreground));
+    margin-bottom: 0.25rem;
+}
+
+.export-option-description {
+    font-size: 0.875rem;
+    color: hsl(var(--muted-foreground));
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+}
+
+.modal-footer .btn {
+    min-width: 80px;
 }
 
 /* レスポンシブ対応 */
