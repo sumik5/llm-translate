@@ -338,11 +338,14 @@ class TranslatorApp {
             elements.outputText.value = '';
         }
         
+        // Normalize the chunk text before appending
+        const normalizedChunk = this.normalizeTranslatedMarkdown(chunkText);
+        
         // Append chunk with proper formatting
         if (elements.outputText.value) {
-            elements.outputText.value += '\n\n' + chunkText;
+            elements.outputText.value += '\n\n' + normalizedChunk;
         } else {
-            elements.outputText.value = chunkText;
+            elements.outputText.value = normalizedChunk;
         }
         
         // Update UI
@@ -360,16 +363,36 @@ class TranslatorApp {
     private handleTranslationSuccess(translatedText?: string): void {
         const { elements } = this.uiManager;
         
-        // Set final text if provided
+        // Set final text if provided and normalize it
         if (translatedText && !elements.outputText.value) {
-            elements.outputText.value = translatedText;
+            const normalizedText = this.normalizeTranslatedMarkdown(translatedText);
+            elements.outputText.value = normalizedText;
             this.uiManager.updateOutputCharCount();
+        } else if (elements.outputText.value) {
+            // Normalize existing text in output
+            const normalizedText = this.normalizeTranslatedMarkdown(elements.outputText.value);
+            if (normalizedText !== elements.outputText.value) {
+                elements.outputText.value = normalizedText;
+                this.uiManager.updateOutputCharCount();
+            }
         }
         
         // Update preview and enable save
         this.updatePreviewWithImages();
         this.uiManager.state.completeTranslation();
         elements.saveHtmlBtn.disabled = false;
+    }
+
+    /**
+     * Normalize translated markdown text for proper spacing
+     * @param text - Text to normalize
+     * @returns Normalized text with proper spacing
+     */
+    private normalizeTranslatedMarkdown(text: string): string {
+        if (!this.markdownProcessor || !text) return text;
+        
+        // Always apply markdown normalization to ensure proper spacing
+        return this.markdownProcessor.normalizeMarkdown(text);
     }
 
     /**
