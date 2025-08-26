@@ -6,6 +6,7 @@ import type {
     // MarkdownNode // Unused
 } from './types/processors.js';
 import type { SupportedFileType, FileInfo } from './types/core.js';
+import { MarkdownFormatter } from './markdown-formatter.js';
 
 // Global marked library type declarations
 declare global {
@@ -100,7 +101,7 @@ class MarkdownProcessor implements IMarkdownProcessor {
      */
     normalizeMarkdown(content: string): string {
         const sanitized = this.sanitizeForMarked(content);
-        return this.ensureProperSpacing(sanitized);
+        return MarkdownFormatter.ensureProperSpacing(sanitized);
     }
 
     private initializeMarked(): void {
@@ -288,78 +289,6 @@ class MarkdownProcessor implements IMarkdownProcessor {
         return processedLines.join('\n');
     }
 
-    private ensureProperSpacing(markdown: string): string {
-        const lines = markdown.split('\n');
-        const result: string[] = [];
-        
-        for (let i = 0; i < lines.length; i++) {
-            const currentLine = lines[i] || '';
-            const prevLine = i > 0 ? (lines[i - 1] || '') : '';
-            const nextLine = i < lines.length - 1 ? (lines[i + 1] || '') : '';
-            
-            // 画像プレースホルダーかどうかをチェック
-            const isImagePlaceholder = (line: string) => /^\[\[IMG_\d+\]\]$/.test(line.trim());
-            
-            // 画像プレースホルダーの前に空行を追加
-            if (isImagePlaceholder(currentLine) && prevLine.trim() !== '') {
-                result.push('');
-            }
-            
-            // ヘッダー（#で始まる行）の前に空行を追加
-            // ただし、前の行が既に空行またはヘッダーの場合は追加しない
-            if (currentLine.match(/^#{1,6}\s+/) && 
-                prevLine.trim() !== '' && 
-                !prevLine.match(/^#{1,6}\s+/)) {
-                result.push('');
-            }
-            
-            // コードブロック開始（```）の前に空行を追加
-            if (currentLine.trim().startsWith('```') && 
-                prevLine.trim() !== '' && 
-                !prevLine.trim().startsWith('```')) {
-                result.push('');
-            }
-            
-            result.push(currentLine);
-            
-            // 画像プレースホルダーの後に空行を追加
-            if (isImagePlaceholder(currentLine) && nextLine.trim() !== '') {
-                result.push('');
-            }
-            
-            // ヘッダーの後に空行を追加
-            // ただし、次の行が既に空行またはヘッダーの場合は追加しない
-            if (currentLine.match(/^#{1,6}\s+/) && 
-                nextLine.trim() !== '' && 
-                !nextLine.match(/^#{1,6}\s+/)) {
-                result.push('');
-            }
-            
-            // コードブロック終了（```）の後に空行を追加
-            if (currentLine.trim().startsWith('```') && 
-                this.isCodeBlockEnd(lines, i) && 
-                nextLine.trim() !== '' && 
-                !nextLine.trim().startsWith('```')) {
-                result.push('');
-            }
-        }
-        
-        // 連続する空行を最大2つまでに制限
-        return result.join('\n').replace(/\n{3,}/g, '\n\n');
-    }
-    
-    private isCodeBlockEnd(lines: string[], index: number): boolean {
-        // 現在の行より前にコードブロック開始があるか確認
-        let codeBlockCount = 0;
-        for (let i = 0; i <= index; i++) {
-            const line = lines[i];
-            if (line && line.trim().startsWith('```')) {
-                codeBlockCount++;
-            }
-        }
-        // 奇数回なら開始、偶数回なら終了
-        return codeBlockCount % 2 === 0;
-    }
 
     private createProcessingResult(content: string, fileInfo?: FileInfo): ProcessingResult {
         const characterCount = content.length;
