@@ -95,11 +95,19 @@ class EPUBProcessor extends BaseFileProcessor {
             const contentOPF = await this.getContentOPF(this.zip);
             const spine = this.parseSpine(contentOPF);
             
+            if (!spine || spine.length === 0) {
+                throw new Error('No spine items found in EPUB');
+            }
+            
             // Pre-load all images
             await this.preloadImages(this.zip);
             
             const chapters: string[] = [];
-            for (const itemRef of spine) {
+            for (let i = 0; i < spine.length; i++) {
+                const itemRef = spine[i];
+                if (!itemRef) {
+                    continue;
+                }
                 const content = await this.getChapterContent(this.zip, itemRef.href, this.basePath);
                 if (content) {
                     chapters.push(content);
@@ -349,9 +357,34 @@ class EPUBProcessor extends BaseFileProcessor {
             }
             
             const content = await contentFile.async('string');
+            
+            // Parse as XML/XHTML instead of HTML
             const parser = new DOMParser();
-            const doc = parser.parseFromString(content, 'text/html');
-            const text = this.extractTextFromNode(doc.body);
+            let doc = parser.parseFromString(content, 'application/xhtml+xml');
+            
+            // If XHTML parsing fails, try HTML
+            if (doc.querySelector('parsererror')) {
+                doc = parser.parseFromString(content, 'text/html');
+            }
+            
+            // Try to find body element with namespace awareness
+            let bodyElement = doc.body || doc.querySelector('body') || doc.documentElement;
+            
+            if (!bodyElement) {
+                // Try to get the root element
+                bodyElement = doc.documentElement;
+                if (!bodyElement) {
+                    return '';
+                }
+            }
+            
+            const text = this.extractTextFromNode(bodyElement);
+            
+            // If extraction failed, try a simpler approach
+            if (!text || text.length === 0) {
+                const fallbackText = bodyElement.textContent || '';
+                return fallbackText.trim();
+            }
             
             return text;
         } catch (error) {
