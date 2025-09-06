@@ -2,6 +2,7 @@
 import { DOMController } from './dom-controller.js';
 import { StateManager } from './state-manager.js';
 import { HTMLGenerator } from './html-generator.js';
+import { MarkdownGenerator } from './markdown-generator.js';
 import { MarkdownFormatter } from './markdown-formatter.js';
 import type MarkdownProcessor from './markdown-processor.js';
 import type { ImageManager } from './image-manager.js';
@@ -31,12 +32,14 @@ export class UIManager {
     private readonly dom: DOMController;
     private readonly state: StateManager;
     private readonly htmlGenerator: HTMLGenerator;
+    private readonly markdownGenerator: MarkdownGenerator;
     public readonly elements: Record<string, HTMLElement>;
 
     constructor() {
         this.dom = new DOMController();
         this.state = new StateManager();
         this.htmlGenerator = new HTMLGenerator();
+        this.markdownGenerator = new MarkdownGenerator();
         this.elements = this.dom.elements; // For backward compatibility
         this.setupStateListeners();
     }
@@ -168,19 +171,85 @@ export class UIManager {
         const cancelBtn = document.getElementById('cancelExport');
         const confirmBtn = document.getElementById('confirmExport');
         
+        // Set up file format change handler
+        const setupFormatHandler = (): void => {
+            const formatRadios = document.querySelectorAll('input[name="fileFormat"]');
+            const sideBySideOption = document.querySelector('input[value="side-by-side"]') as HTMLInputElement;
+            const sideBySideLabel = sideBySideOption?.closest('.export-option') as HTMLElement;
+            
+            const handleFormatChange = (): void => {
+                const selectedFormat = document.querySelector('input[name="fileFormat"]:checked') as HTMLInputElement;
+                if (!selectedFormat || !sideBySideOption || !sideBySideLabel) return;
+                
+                if (selectedFormat.value === 'markdown') {
+                    // Disable side-by-side option for Markdown
+                    sideBySideOption.disabled = true;
+                    sideBySideLabel.style.opacity = '0.5';
+                    sideBySideLabel.style.pointerEvents = 'none';
+                    
+                    // If side-by-side was selected, switch to translation-only
+                    if (sideBySideOption.checked) {
+                        const translationOnlyOption = document.querySelector('input[value="translation-only"]') as HTMLInputElement;
+                        if (translationOnlyOption) {
+                            translationOnlyOption.checked = true;
+                        }
+                    }
+                } else {
+                    // Enable side-by-side option for HTML
+                    sideBySideOption.disabled = false;
+                    sideBySideLabel.style.opacity = '1';
+                    sideBySideLabel.style.pointerEvents = 'auto';
+                }
+            };
+            
+            formatRadios.forEach(radio => {
+                radio.addEventListener('change', handleFormatChange);
+            });
+            
+            // Set initial state
+            handleFormatChange();
+        };
+        
+        setupFormatHandler();
+        
         const handleCancel = (): void => {
             modal.classList.remove('active');
+            
+            // Clean up event listeners
+            const formatRadios = document.querySelectorAll('input[name="fileFormat"]');
+            formatRadios.forEach(radio => {
+                const newRadio = radio.cloneNode(true);
+                radio.parentNode?.replaceChild(newRadio, radio);
+            });
+            
             if (cancelBtn) cancelBtn.removeEventListener('click', handleCancel);
             if (confirmBtn) confirmBtn.removeEventListener('click', handleConfirm);
         };
         
         const handleConfirm = (): void => {
-            const selectedOption = document.querySelector('input[name="exportType"]:checked') as HTMLInputElement;
-            const exportType = selectedOption ? selectedOption.value : 'translation-only';
+            const selectedFormat = document.querySelector('input[name="fileFormat"]:checked') as HTMLInputElement;
+            const selectedType = document.querySelector('input[name="exportType"]:checked') as HTMLInputElement;
             
-            this.performExport(_markdownProcessor, exportType, imageManager);
+            const fileFormat = selectedFormat ? selectedFormat.value : 'html';
+            const exportType = selectedType ? selectedType.value : 'translation-only';
+            
+            // Combine format and type for export
+            let finalExportType = exportType;
+            if (fileFormat === 'markdown') {
+                finalExportType = exportType === 'translation-only' ? 'markdown-only' : 'markdown-comparison';
+            }
+            
+            this.performExport(_markdownProcessor, finalExportType, imageManager);
             
             modal.classList.remove('active');
+            
+            // Clean up event listeners
+            const formatRadios = document.querySelectorAll('input[name="fileFormat"]');
+            formatRadios.forEach(radio => {
+                const newRadio = radio.cloneNode(true);
+                radio.parentNode?.replaceChild(newRadio, radio);
+            });
+            
             if (cancelBtn) cancelBtn.removeEventListener('click', handleCancel);
             if (confirmBtn) confirmBtn.removeEventListener('click', handleConfirm);
         };
@@ -210,8 +279,9 @@ export class UIManager {
             translatedText = imageManager.restoreImages(translatedText);
         }
         
-        if (!translatedText) {
-            alert('翻訳結果がありません');
+        // Check if there's any content to save
+        if (!originalText && !translatedText) {
+            alert('保存する内容がありません');
             return;
         }
         
@@ -222,40 +292,63 @@ export class UIManager {
             baseFilename = fileInput.files[0].name.replace(/\.[^/.]+$/, '');
         }
         
-        const translatedHtml = MarkdownFormatter.toHtml(translatedText);
-        let htmlContent: string;
-        let filename: string;
-        
-        if (exportType === 'translation-only') {
-            // Export translation only
-            htmlContent = this.htmlGenerator.generateSingleColumnHtml(
-                translatedHtml, 
-                {
-                    title: baseFilename,
-                    styles: this.htmlGenerator.getTranslationOnlyStyles()
-                }
+        // Check if markdown format is selected
+        if (exportType === 'markdown-only') {
+            // Export markdown only
+            const markdownContent = this.markdownGenerator.generateTranslationOnlyMarkdown(
+                translatedText,
+                { title: baseFilename, includeTimestamp: true }
             );
-            filename = this.htmlGenerator.generateFilename(baseFilename + '_translated');
+            const filename = this.markdownGenerator.generateFilename(baseFilename + '_translated');
+            // Extract images and download separately
+            this.markdownGenerator.downloadMarkdownWithImages(markdownContent, filename, { extractImages: true });
+        } else if (exportType === 'markdown-comparison') {
+            // Export markdown with comparison
+            const markdownContent = this.markdownGenerator.generateComparisonMarkdown(
+                originalText,
+                translatedText,
+                { title: baseFilename, includeTimestamp: true }
+            );
+            const filename = this.markdownGenerator.generateFilename(baseFilename + '_comparison');
+            // Extract images and download separately
+            this.markdownGenerator.downloadMarkdownWithImages(markdownContent, filename, { extractImages: true });
         } else {
-            // Export side-by-side
-            const originalHtml = originalText ? 
-                MarkdownFormatter.toHtml(originalText) : null;
+            // HTML export (existing logic)
+            const translatedHtml = MarkdownFormatter.toHtml(translatedText);
+            let htmlContent: string;
+            let filename: string;
             
-            htmlContent = this.htmlGenerator.generateTranslationHtml(
-                originalHtml, 
-                translatedHtml,
-                {
-                    title: baseFilename,
-                    originalLabel: '原文',
-                    translatedLabel: '翻訳',
-                    styles: this.htmlGenerator.getWideLayoutStyles()
-                }
-            );
-            filename = this.htmlGenerator.generateFilename(baseFilename + '_comparison');
+            if (exportType === 'translation-only') {
+                // Export translation only
+                htmlContent = this.htmlGenerator.generateSingleColumnHtml(
+                    translatedHtml, 
+                    {
+                        title: baseFilename,
+                        styles: this.htmlGenerator.getTranslationOnlyStyles()
+                    }
+                );
+                filename = this.htmlGenerator.generateFilename(baseFilename + '_translated');
+            } else {
+                // Export side-by-side
+                const originalHtml = originalText ? 
+                    MarkdownFormatter.toHtml(originalText) : null;
+                
+                htmlContent = this.htmlGenerator.generateTranslationHtml(
+                    originalHtml, 
+                    translatedHtml,
+                    {
+                        title: baseFilename,
+                        originalLabel: '原文',
+                        translatedLabel: '翻訳',
+                        styles: this.htmlGenerator.getWideLayoutStyles()
+                    }
+                );
+                filename = this.htmlGenerator.generateFilename(baseFilename + '_comparison');
+            }
+            
+            // Download the file
+            this.htmlGenerator.downloadAsHtml(htmlContent, filename);
         }
-        
-        // Download the file
-        this.htmlGenerator.downloadAsHtml(htmlContent, filename);
         
         this.clearChanges();
     }

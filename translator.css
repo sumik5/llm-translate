@@ -810,6 +810,23 @@ body {
     margin-bottom: 1.5rem;
 }
 
+.export-section {
+    margin-bottom: 1.5rem;
+}
+
+.export-section:last-child {
+    margin-bottom: 0;
+}
+
+.export-section-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: hsl(var(--muted-foreground));
+    margin-bottom: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
 .export-options {
     display: flex;
     flex-direction: column;

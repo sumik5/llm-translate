@@ -36,8 +36,8 @@
                         <span class="btn-text">翻訳する</span>
                         <span class="spinner"></span>
                     </button>
-                    <button id="saveHtmlBtn" class="btn btn-secondary" disabled>
-                        HTMLを保存
+                    <button id="saveHtmlBtn" class="btn btn-secondary">
+                        保存
                     </button>
                 </div>
             </div>
@@ -135,8 +135,8 @@ console.log('Hello World');
                 <div class="editor-panel" style="position: relative;">
                     <div class="panel-header">
                         <div class="tabs-list">
-                            <button class="tabs-trigger" data-state="active" data-tab="text">テキスト</button>
-                            <button class="tabs-trigger" data-tab="preview">プレビュー</button>
+                            <button class="tabs-trigger" data-state="active" data-tab="text">Markdown</button>
+                            <button class="tabs-trigger" data-tab="preview">HTML</button>
                         </div>
                         <span class="panel-info" id="outputCharCount">0文字</span>
                     </div>
@@ -165,21 +165,43 @@ console.log('Hello World');
                 <h2 class="modal-title">エクスポート形式を選択</h2>
             </div>
             <div class="modal-body">
-                <div class="export-options">
-                    <label class="export-option">
-                        <input type="radio" name="exportType" value="translation-only" checked>
-                        <div class="export-option-content">
-                            <div class="export-option-title">翻訳のみ</div>
-                            <div class="export-option-description">翻訳結果のみを出力します</div>
-                        </div>
-                    </label>
-                    <label class="export-option">
-                        <input type="radio" name="exportType" value="side-by-side">
-                        <div class="export-option-content">
-                            <div class="export-option-title">原文・翻訳対照</div>
-                            <div class="export-option-description">原文と翻訳を左右に並べて表示します</div>
-                        </div>
-                    </label>
+                <div class="export-section">
+                    <h3 class="export-section-title">ファイル形式</h3>
+                    <div class="export-options">
+                        <label class="export-option">
+                            <input type="radio" name="fileFormat" value="html" checked>
+                            <div class="export-option-content">
+                                <div class="export-option-title">HTML</div>
+                                <div class="export-option-description">ブラウザで表示可能な形式</div>
+                            </div>
+                        </label>
+                        <label class="export-option">
+                            <input type="radio" name="fileFormat" value="markdown">
+                            <div class="export-option-content">
+                                <div class="export-option-title">Markdown</div>
+                                <div class="export-option-description">テキストエディタで編集可能な形式</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                <div class="export-section">
+                    <h3 class="export-section-title">出力内容</h3>
+                    <div class="export-options">
+                        <label class="export-option">
+                            <input type="radio" name="exportType" value="translation-only" checked>
+                            <div class="export-option-content">
+                                <div class="export-option-title">翻訳のみ</div>
+                                <div class="export-option-description">翻訳結果のみを出力します</div>
+                            </div>
+                        </label>
+                        <label class="export-option">
+                            <input type="radio" name="exportType" value="side-by-side">
+                            <div class="export-option-content">
+                                <div class="export-option-title">原文・翻訳対照</div>
+                                <div class="export-option-description">原文と翻訳を並べて表示します</div>
+                            </div>
+                        </label>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">

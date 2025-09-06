@@ -377,10 +377,9 @@ class TranslatorApp {
             }
         }
         
-        // Update preview and enable save
+        // Update preview
         this.updatePreviewWithImages();
         this.uiManager.state.completeTranslation();
-        elements.saveHtmlBtn.disabled = false;
     }
 
     /**
@@ -445,8 +444,7 @@ class TranslatorApp {
             elements.translateBtn.style.backgroundColor = '#ef4444';
             elements.translateBtn.style.color = '#ffffff';
             
-            // Disable other controls
-            elements.saveHtmlBtn.disabled = true;
+            // Disable file input during translation
             elements.fileInput.disabled = true;
             elements.outputText.classList.add('translating');
             elements.markdownPreview.innerHTML = '';
