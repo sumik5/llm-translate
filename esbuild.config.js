@@ -15,11 +15,15 @@ const devConfig = {
         '.ts': 'ts',
     },
     define: {
-        'process.env.NODE_ENV': '"development"'
+        'process.env.NODE_ENV': '"development"',
+        'global': 'globalThis',
     },
     banner: {
-        js: '/* LLM Translator - Development Build */',
+        js: '/* LLM Translator - Development Build */\nif (typeof process === "undefined") { window.process = { cwd: () => "/" }; }',
     },
+    // Node.js built-ins polyfills for browser compatibility
+    external: [],
+    inject: [],
 };
 
 // Production build configuration
@@ -29,10 +33,11 @@ const prodConfig = {
     minify: true,
     sourcemap: false,
     define: {
-        'process.env.NODE_ENV': '"production"'
+        'process.env.NODE_ENV': '"production"',
+        'global': 'globalThis',
     },
     banner: {
-        js: '/* LLM Translator - Production Build */',
+        js: '/* LLM Translator - Production Build */\nif (typeof process === "undefined") { window.process = { cwd: () => "/" }; }',
     },
 };
 

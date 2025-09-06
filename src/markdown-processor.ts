@@ -102,14 +102,17 @@ class MarkdownProcessor implements IMarkdownProcessor {
         const renderer = new marked.Renderer();
         
         renderer.image = (href: string | null, title: string | null, text: string): string => {
-            if (href && href.startsWith('data:image/')) {
+            // hrefがnullまたは文字列でない場合のチェック
+            const hrefStr = href ? String(href) : '';
+            
+            if (hrefStr && hrefStr.startsWith('data:image/')) {
                 const alt = text ? ` alt="${MarkdownFormatter.escapeHtml(text)}"` : '';
                 const titleAttr = title ? ` title="${MarkdownFormatter.escapeHtml(title)}"` : '';
-                return `<img src="${href}"${alt}${titleAttr} style="max-width: 100%; height: auto;">`;
+                return `<img src="${hrefStr}"${alt}${titleAttr} style="max-width: 100%; height: auto;">`;
             }
             const alt = text ? ` alt="${MarkdownFormatter.escapeHtml(text)}"` : '';
             const titleAttr = title ? ` title="${MarkdownFormatter.escapeHtml(title)}"` : '';
-            return `<img src="${href || ''}"${alt}${titleAttr} style="max-width: 100%; height: auto;">`;
+            return `<img src="${hrefStr}"${alt}${titleAttr} style="max-width: 100%; height: auto;">`;
         };
         
         marked.setOptions?.({
