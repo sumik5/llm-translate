@@ -26,6 +26,8 @@ export interface FileMetadata {
   readonly characterCount: number;
   readonly processingTime: number;
   readonly extractedImages?: readonly ImageInfo[];
+  readonly parserType?: string;
+  readonly parserName?: string;
 }
 
 /**

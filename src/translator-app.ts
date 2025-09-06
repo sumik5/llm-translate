@@ -120,7 +120,22 @@ class TranslatorApp {
             this.handleFileUpload(e).catch(error => {
                 console.error('File upload error:', error);
                 this.uiManager.showError(`ファイル読み込みエラー: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            }).finally(() => {
+                // 同じファイルを選択してもイベントが発火するようにリセット
+                elements.fileInput.value = '';
             });
+        });
+
+        // Handle Shift+Click on file input for parser selection
+        elements.fileInput.addEventListener('click', (e: MouseEvent) => {
+            if (e.shiftKey) {
+                // Shift+Clickでパーサー選択を強制
+                e.preventDefault();
+                this.handleFileUploadWithParserSelection().catch(error => {
+                    console.error('File upload with parser selection error:', error);
+                    this.uiManager.showError(`ファイル読み込みエラー: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                });
+            }
         });
         
         // Text input monitoring
@@ -237,6 +252,45 @@ class TranslatorApp {
         
         try {
             const result = await FileProcessor.processFile(file);
+            
+            // Store image manager if available
+            this.currentImageManager = result.imageManager || null;
+            
+            // Set the text and update UI
+            this.uiManager.elements.inputText.value = result.text;
+            this.uiManager.updateInputCharCount();
+            this.uiManager.markAsChanged();
+            
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown file processing error';
+            this.uiManager.showError(`ファイル読み込みエラー: ${errorMessage}`);
+        }
+    }
+
+    /**
+     * パーサー選択を強制してファイルをアップロード・処理
+     */
+    private async handleFileUploadWithParserSelection(): Promise<void> {
+        // ファイル選択ダイアログを開く
+        const fileInput = this.uiManager.elements.fileInput;
+        fileInput.click();
+        
+        // ファイルが選択されるのを待つ
+        const waitForFile = new Promise<File | null>((resolve) => {
+            const handleChange = (e: Event) => {
+                const target = e.target as HTMLInputElement;
+                const file = target.files?.[0] || null;
+                fileInput.removeEventListener('change', handleChange);
+                resolve(file);
+            };
+            fileInput.addEventListener('change', handleChange);
+        });
+
+        const file = await waitForFile;
+        if (!file) return;
+
+        try {
+            const result = await FileProcessor.processFileWithParserSelection(file);
             
             // Store image manager if available
             this.currentImageManager = result.imageManager || null;

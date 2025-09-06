@@ -57,7 +57,8 @@ class FileProcessor {
                 return { text: result.content || '', imageManager };
             },
             'pdf': async (): Promise<FileProcessingResult> => {
-                const result = await this.pdfProcessor.parse(arrayBuffer, fileInfo);
+                // PDF処理時にパーサー選択を行う
+                const result = await this.pdfProcessor.parse(arrayBuffer, fileInfo, false);
                 imageManager = this.pdfProcessor.getImageManager();
                 return { text: result.content, imageManager };
             },
@@ -124,6 +125,34 @@ class FileProcessor {
      */
     static getSupportedExtensions(): readonly string[] {
         return ['epub', 'pdf', 'md', 'markdown', 'txt'] as const;
+    }
+
+    /**
+     * PDFファイルの処理でパーサー選択を強制する
+     * @param file - 処理対象のFile
+     * @param options - 処理オプション（オプション）
+     * @returns 処理結果
+     */
+    static async processFileWithParserSelection(file: File, _options?: ProcessingOptions): Promise<FileProcessingResult> {
+        const fileType = this.getFileType(file.name);
+        
+        if (fileType !== 'pdf') {
+            // PDFファイル以外は通常の処理
+            return this.processFile(file, _options);
+        }
+        
+        // PDFファイルの場合はパーサー選択を強制
+        const arrayBuffer = await file.arrayBuffer();
+        const fileInfo: FileInfo = {
+            name: file.name,
+            type: fileType,
+            size: file.size,
+            lastModified: new Date(file.lastModified)
+        };
+        
+        const result = await this.pdfProcessor.parse(arrayBuffer, fileInfo, true);
+        const imageManager = this.pdfProcessor.getImageManager();
+        return { text: result.content, imageManager };
     }
 
     /**
