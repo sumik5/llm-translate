@@ -186,6 +186,17 @@ body {
     color: hsl(var(--muted-foreground));
 }
 
+/* Number input specific styles */
+input[type="number"] {
+    -moz-appearance: textfield; /* Firefox */
+    ime-mode: disabled; /* Disable IME */
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+    opacity: 1; /* Keep spin buttons visible */
+}
+
 /* Checkbox - shadcn/ui style */
 .checkbox-wrapper {
     display: flex;
@@ -599,6 +610,20 @@ body {
     margin: 2rem 0;
     border: 0;
     border-top: 1px solid hsl(var(--border));
+}
+
+/* File Input */
+.hidden-file-input {
+    display: none;
+}
+
+.file-select-group {
+    justify-content: flex-end;
+    margin-top: auto;
+}
+
+.file-select-group .btn {
+    align-self: flex-start;
 }
 
 /* Progress & Alerts */

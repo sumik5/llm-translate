@@ -30,8 +30,12 @@ export class ImageManager {
     storeImage(base64Data: string, altText: string = ''): string {
         this.imageCounter++;
         const imageId = `IMG_${this.imageCounter}`;
+        
+        // データが文字列であることを確認
+        const dataStr = typeof base64Data === 'string' ? base64Data : String(base64Data);
+        
         this.images.set(imageId, {
-            data: base64Data,
+            data: dataStr,
             alt: altText
         });
         // Return a placeholder that won't be translated
@@ -49,7 +53,12 @@ export class ImageManager {
         for (const [imageId, imageData] of this.images) {
             const placeholder = `[[${imageId}]]`;
             if (text.includes(placeholder)) {
-                const imageMarkdown = `![${imageData.alt}](${imageData.data})`;
+                // データが文字列であることを確認
+                const dataStr = typeof imageData.data === 'string' ? imageData.data : '[object Object]';
+                if (dataStr === '[object Object]') {
+                    console.error('Invalid image data for', imageId, ':', imageData.data);
+                }
+                const imageMarkdown = `![${imageData.alt}](${dataStr})`;
                 restoredText = restoredText.replace(new RegExp(placeholder.replace(/[[\]]/g, '\\$&'), 'g'), imageMarkdown);
             }
         }

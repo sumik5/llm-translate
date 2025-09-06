@@ -90,12 +90,14 @@
 
                 <div class="control-group">
                     <label class="label" for="chunkSize">チャンクサイズ</label>
-                    <input type="number" id="chunkSize" class="input" value="1000" min="100" max="10000" style="width: 7rem;">
+                    <input type="number" id="chunkSize" class="input" value="1000" min="100" max="10000" style="width: 7rem;" inputmode="numeric" pattern="[0-9]*">
                 </div>
 
-                <div class="control-group">
-                    <label class="label" for="fileInput">ファイル選択 (EPUB/PDF)</label>
-                    <input type="file" id="fileInput" class="input" accept=".epub,.pdf,.txt,.md" style="padding: 0.5rem;">
+                <div class="control-group file-select-group">
+                    <input type="file" id="fileInput" class="hidden-file-input" accept=".epub,.pdf,.txt,.md">
+                    <button type="button" id="fileInputButton" class="btn btn-default">
+                        <span class="btn-text">ファイルを選択 (EPUB/PDF)</span>
+                    </button>
                 </div>
 
                 <div class="control-group" style="flex: 1;">

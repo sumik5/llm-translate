@@ -112,7 +112,37 @@ export default class LingoTurndownParser extends BaseEPUBParser {
             
             // ArrayBufferをBlobに変換してEPUBをパース
             const blob = new Blob([arrayBuffer], { type: 'application/epub+zip' });
-            const epub = await this.initEpubFile!(blob as any);
+            
+            // Lingo EPUBパーサーの警告メッセージを抑制
+            const originalConsoleLog = console.log;
+            const originalConsoleWarn = console.warn;
+            console.log = (...args: any[]) => {
+                // Lingoの内部メッセージをフィルタリング
+                const message = args.join(' ');
+                if (message.includes('No element with id') || 
+                    message.includes('file was not exit in') ||
+                    message.includes('return an empty uint8 array')) {
+                    return; // これらのメッセージは無視
+                }
+                originalConsoleLog(...args);
+            };
+            console.warn = (...args: any[]) => {
+                const message = args.join(' ');
+                if (message.includes('No element with id') || 
+                    message.includes('file was not exit in')) {
+                    return;
+                }
+                originalConsoleWarn(...args);
+            };
+            
+            let epub;
+            try {
+                epub = await this.initEpubFile!(blob as any);
+            } finally {
+                // コンソールメソッドを復元
+                console.log = originalConsoleLog;
+                console.warn = originalConsoleWarn;
+            }
             
             // Turndownサービスを設定
             const turndownService = new this.TurndownService!({

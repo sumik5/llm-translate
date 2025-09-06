@@ -14,6 +14,7 @@ export interface ElementIds {
     readonly apiUrl: string;
     readonly modelName: string;
     readonly fileInput: string;
+    readonly fileInputButton: string;
     readonly translateBtn: string;
     readonly saveHtmlBtn: string;
     readonly markdownPreview: string;
@@ -42,6 +43,7 @@ export class DOMController {
             apiUrl: 'apiUrl',
             modelName: 'modelName',
             fileInput: 'fileInput',
+            fileInputButton: 'fileInputButton',
             translateBtn: 'translateBtn',
             saveHtmlBtn: 'saveHtmlBtn',
             markdownPreview: 'markdownPreview',

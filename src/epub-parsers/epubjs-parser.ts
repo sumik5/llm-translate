@@ -177,6 +177,9 @@ export default class EPUBJSParser extends BaseEPUBParser {
                     
                     if (!htmlContent) continue;
                     
+                    // スタイル要素を除去
+                    htmlContent = this.removeStyleElements(htmlContent);
+                    
                     // 画像を処理するために、HTML内のimgタグをdata URLに変換
                     // 一旦コメントアウトして別の方法を試す
                     // if (mergedOptions.extractImages) {
@@ -503,6 +506,29 @@ export default class EPUBJSParser extends BaseEPUBParser {
         }
         
         return processedContent;
+    }
+    
+    /**
+     * HTML内のスタイル要素を除去
+     */
+    private removeStyleElements(html: string): string {
+        // DOMパーサーを使用してHTMLを解析
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        
+        // <style>要素を全て削除
+        const styleElements = doc.querySelectorAll('style');
+        styleElements.forEach(style => style.remove());
+        
+        // style属性を持つ要素からstyle属性を削除（オプション）
+        // const elementsWithStyle = doc.querySelectorAll('[style]');
+        // elementsWithStyle.forEach(elem => elem.removeAttribute('style'));
+        
+        // <link rel="stylesheet">も削除
+        const linkElements = doc.querySelectorAll('link[rel="stylesheet"]');
+        linkElements.forEach(link => link.remove());
+        
+        return doc.documentElement.innerHTML;
     }
     
     /**

@@ -115,6 +115,11 @@ class TranslatorApp {
             }
         });
         
+        // File input button handling
+        elements.fileInputButton?.addEventListener('click', () => {
+            elements.fileInput.click();
+        });
+        
         // File input handling
         elements.fileInput.addEventListener('change', (e: Event) => {
             this.handleFileUpload(e).catch(error => {
@@ -153,6 +158,56 @@ class TranslatorApp {
         // Save HTML button
         elements.saveHtmlBtn.addEventListener('click', () => 
             this.uiManager.downloadHtml(this.markdownProcessor, this.currentImageManager));
+        
+        // Chunk size input - force numeric input mode
+        const chunkSizeInput = elements.chunkSize as HTMLInputElement;
+        
+        // compositionstart/endイベントでIME入力を検知して防ぐ
+        chunkSizeInput.addEventListener('compositionstart', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+        
+        chunkSizeInput.addEventListener('compositionupdate', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+        
+        chunkSizeInput.addEventListener('compositionend', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+        
+        // キー入力を数字のみに制限
+        chunkSizeInput.addEventListener('keydown', (e) => {
+            // 数字キー、バックスペース、削除、Tab、Enter、矢印キーを許可
+            const allowedKeys = ['Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
+            const isNumber = (e.key >= '0' && e.key <= '9');
+            const isAllowed = allowedKeys.includes(e.key);
+            const isModifier = e.ctrlKey || e.metaKey || e.altKey;
+            
+            if (!isNumber && !isAllowed && !isModifier) {
+                e.preventDefault();
+            }
+        });
+        
+        // ペースト時も数字のみ許可
+        chunkSizeInput.addEventListener('paste', (e) => {
+            e.preventDefault();
+            const pasteData = e.clipboardData?.getData('text');
+            if (pasteData && /^\d+$/.test(pasteData)) {
+                const currentValue = chunkSizeInput.value;
+                const selectionStart = chunkSizeInput.selectionStart || 0;
+                const selectionEnd = chunkSizeInput.selectionEnd || 0;
+                const newValue = currentValue.slice(0, selectionStart) + pasteData + currentValue.slice(selectionEnd);
+                const numValue = parseInt(newValue, 10);
+                
+                // min/max範囲内であることを確認
+                if (numValue >= 100 && numValue <= 10000) {
+                    chunkSizeInput.value = newValue;
+                }
+            }
+        });
         
         // Model refresh button
         if (elements.refreshModels) {
