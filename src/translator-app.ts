@@ -554,7 +554,10 @@ class TranslatorApp {
             elements.translateBtn.style.backgroundColor = '#ef4444';
             elements.translateBtn.style.color = '#ffffff';
             
-            // Disable file input during translation
+            // Disable input text and file input during translation
+            elements.inputText.disabled = true;
+            elements.inputText.style.opacity = '0.6';
+            elements.inputText.style.cursor = 'not-allowed';
             elements.fileInput.disabled = true;
             elements.outputText.classList.add('translating');
             elements.markdownPreview.innerHTML = '';
@@ -569,6 +572,11 @@ class TranslatorApp {
             elements.translateBtn.style.backgroundColor = '';
             elements.translateBtn.style.color = '';
             elements.translateBtn.classList.remove('loading');
+            
+            // Re-enable input text and file input
+            elements.inputText.disabled = false;
+            elements.inputText.style.opacity = '1';
+            elements.inputText.style.cursor = 'text';
             elements.outputText.classList.remove('translating');
             elements.fileInput.disabled = false;
             
