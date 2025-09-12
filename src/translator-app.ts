@@ -152,7 +152,8 @@ class TranslatorApp {
         elements.outputText.addEventListener('input', () => {
             this.uiManager.updateCharCount(elements.outputText, elements.outputCharCount);
             this.uiManager.markAsChanged();
-            this.updatePreviewIfActive();
+            // 常にプレビューを更新（タブの状態に関わらず）
+            this.updatePreviewWithImages();
         });
         
         // Save HTML button
