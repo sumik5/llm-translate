@@ -90,14 +90,15 @@
 
                 <div class="control-group">
                     <label class="label" for="chunkSize">チャンクサイズ</label>
-                    <input type="number" id="chunkSize" class="input" value="1000" min="100" max="10000" style="width: 7rem;" inputmode="numeric" pattern="[0-9]*">
-                </div>
-
-                <div class="control-group file-select-group">
-                    <input type="file" id="fileInput" class="hidden-file-input" accept=".epub,.pdf,.txt,.md">
-                    <button type="button" id="fileInputButton" class="btn btn-default">
-                        <span class="btn-text">ファイルを選択 (EPUB/PDF)</span>
-                    </button>
+                    <div style="display: flex; align-items: center; gap: 0.25rem;">
+                        <input type="text" id="chunkSize" class="input" value="1000" style="width: 7rem;" inputmode="numeric" pattern="[0-9]*">
+                        <button id="chunkSizeDown" class="btn" title="500減らす" style="padding: 0.25rem 0.75rem; font-weight: bold; background-color: #ef4444; color: white; border-color: #ef4444;">
+                            －
+                        </button>
+                        <button id="chunkSizeUp" class="btn" title="500増やす" style="padding: 0.25rem 0.75rem; font-weight: bold; background-color: #10b981; color: white; border-color: #10b981;">
+                            ＋
+                        </button>
+                    </div>
                 </div>
 
                 <div class="control-group" style="flex: 1;">
@@ -108,6 +109,13 @@
                             <div class="progress-fill" id="progressFill" style="width: 0%"></div>
                         </div>
                     </div>
+                </div>
+
+                <div class="control-group file-select-group" style="margin-left: auto;">
+                    <input type="file" id="fileInput" class="hidden-file-input" accept=".epub,.pdf,.txt,.md">
+                    <button type="button" id="fileInputButton" class="btn btn-default">
+                        <span class="btn-text">ファイルを選択 (EPUB/PDF)</span>
+                    </button>
                 </div>
             </div>
 

@@ -210,6 +210,26 @@ class TranslatorApp {
             }
         });
         
+        // チャンクサイズ増減ボタン
+        const chunkSizeUp = document.getElementById('chunkSizeUp');
+        const chunkSizeDown = document.getElementById('chunkSizeDown');
+        
+        if (chunkSizeUp) {
+            chunkSizeUp.addEventListener('click', () => {
+                const currentValue = parseInt(chunkSizeInput.value, 10) || 1000;
+                const newValue = Math.min(currentValue + 500, 10000);
+                chunkSizeInput.value = newValue.toString();
+            });
+        }
+        
+        if (chunkSizeDown) {
+            chunkSizeDown.addEventListener('click', () => {
+                const currentValue = parseInt(chunkSizeInput.value, 10) || 1000;
+                const newValue = Math.max(currentValue - 500, 100);
+                chunkSizeInput.value = newValue.toString();
+            });
+        }
+        
         // Model refresh button
         if (elements.refreshModels) {
             elements.refreshModels.addEventListener('click', async () => {
