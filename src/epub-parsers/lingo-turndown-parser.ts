@@ -2,6 +2,7 @@
 // @lingo-reader/epub-parser + turndownを使用したEPUBパーサー（ブラウザ対応）
 
 import { BaseEPUBParser } from './base-epub-parser.js';
+import { isHtmlContentCode } from '../utils/code-detection.js';
 import type { 
     EPUBParserType,
     EPUBParserOptions,
@@ -182,7 +183,7 @@ export default class LingoTurndownParser extends BaseEPUBParser {
                     if (!chapterData || !(chapterData as any).html) continue;
                     
                     // HTMLをMarkdownに変換
-                    let markdown = turndownService.turndown((chapterData as any).html);
+                    const markdown = turndownService.turndown((chapterData as any).html);
                     
                     // セクション区切りを追加
                     if (mergedOptions.includeChapterNumbers) {
@@ -250,7 +251,7 @@ export default class LingoTurndownParser extends BaseEPUBParser {
             const processingTime = performance.now() - startTime;
             
             const parseResult: EPUBParseResult = {
-                content: this.normalizeMarkdown(content),
+                content: this.normalizeMarkdown(content, true),
                 processingTime,
                 warnings: []
             };
@@ -296,6 +297,20 @@ export default class LingoTurndownParser extends BaseEPUBParser {
                 }
             });
         }
+        
+        // PRE要素のコード判定ルール
+        turndownService.addRule('smartPre', {
+            filter: 'pre',
+            replacement: (content: string) => {
+                // PRE要素の内容がコードかどうかを判定
+                if (isHtmlContentCode(content)) {
+                    return '\n\n```\n' + content + '\n```\n\n';
+                } else {
+                    // コードではない場合は通常のテキストとして扱う
+                    return '\n\n' + content + '\n\n';
+                }
+            }
+        });
         
         // 脚注の処理ルール
         if (options.footnoteStyle === 'inline') {
@@ -474,13 +489,4 @@ export default class LingoTurndownParser extends BaseEPUBParser {
         return processedContent;
     }
     
-    /**
-     * Markdownを正規化
-     */
-    private normalizeMarkdown(content: string): string {
-        return content
-            .replace(/\n{3,}/g, '\n\n')
-            .replace(/[ \t]+$/gm, '')
-            .trim();
-    }
 }

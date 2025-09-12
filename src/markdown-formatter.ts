@@ -27,6 +27,7 @@ export class MarkdownFormatter {
     static ensureProperSpacing(markdown: string): string {
         const lines = markdown.split('\n');
         const result: string[] = [];
+        let inCodeBlock = false;
         
         for (let i = 0; i < lines.length; i++) {
             const currentLine = lines[i] || '';
@@ -39,6 +40,11 @@ export class MarkdownFormatter {
             const isCodeBlock = (line: string) => line.trim().startsWith('```');
             const isListItem = (line: string) => /^\s*\d+\.\s/.test(line) || /^\s*[-*+]\s/.test(line);
             
+            // コードブロックの開始/終了を追跡
+            if (isCodeBlock(currentLine)) {
+                inCodeBlock = !inCodeBlock;
+            }
+            
             // 現在の行のインデントレベルを取得
             const getCurrentIndent = (line: string) => {
                 const match = line.match(/^(\s*)/);
@@ -47,7 +53,7 @@ export class MarkdownFormatter {
             
             // リスト項目のインデント調整（marked.jsは4スペースでネストを認識）
             let processedLine = currentLine;
-            if (isListItem(currentLine)) {
+            if (isListItem(currentLine) && !inCodeBlock) {
                 const currentIndent = getCurrentIndent(currentLine);
                 
                 // 2スペースインデントを4スペースに変換（ネストレベルを保持）
@@ -64,28 +70,30 @@ export class MarkdownFormatter {
             }
             
             // 画像プレースホルダーの前に空行を追加
-            if (isImagePlaceholder(processedLine) && prevLine.trim() !== '') {
+            if (isImagePlaceholder(processedLine) && prevLine.trim() !== '' && !inCodeBlock) {
                 result.push('');
             }
             
             // ヘッダーの前に空行を追加
             if (isHeader(processedLine) && 
                 prevLine.trim() !== '' && 
-                !isHeader(prevLine)) {
+                !isHeader(prevLine) && 
+                !inCodeBlock) {
                 result.push('');
             }
             
-            // コードブロック開始の前に空行を追加
+            // コードブロック開始の前に空行を追加（ただし前の行が空行でない場合）
             if (isCodeBlock(processedLine) && 
                 prevLine.trim() !== '' && 
-                !isCodeBlock(prevLine)) {
+                !isCodeBlock(prevLine) && 
+                !inCodeBlock) {
                 result.push('');
             }
             
             result.push(processedLine);
             
             // 画像プレースホルダーの後に空行を追加
-            if (isImagePlaceholder(processedLine) && nextLine.trim() !== '') {
+            if (isImagePlaceholder(processedLine) && nextLine.trim() !== '' && !inCodeBlock) {
                 result.push('');
             }
             
@@ -93,11 +101,12 @@ export class MarkdownFormatter {
             if (isHeader(processedLine) && 
                 nextLine.trim() !== '' && 
                 !isHeader(nextLine) &&
-                !isListItem(nextLine)) {
+                !isListItem(nextLine) && 
+                !inCodeBlock) {
                 result.push('');
             }
             
-            // コードブロック終了の後に空行を追加
+            // コードブロック終了の後に空行を追加（次の行が空行でない場合）
             if (isCodeBlock(processedLine) && 
                 this.isCodeBlockEnd(lines, i) && 
                 nextLine.trim() !== '' && 
@@ -106,8 +115,50 @@ export class MarkdownFormatter {
             }
         }
         
-        // 連続する空行を最大2つまでに制限
-        return result.join('\n').replace(/\n{3,}/g, '\n\n');
+        // 連続する空行を制限（ただしコードブロック外のみ）
+        return this.limitConsecutiveEmptyLines(result.join('\n'));
+    }
+    
+    /**
+     * 連続する空行を制限（コードブロック内は除外）
+     * @param text - 処理対象のテキスト
+     * @returns 処理後のテキスト
+     */
+    private static limitConsecutiveEmptyLines(text: string): string {
+        const lines = text.split('\n');
+        const result: string[] = [];
+        let inCodeBlock = false;
+        let emptyLineCount = 0;
+        
+        for (const line of lines) {
+            // コードブロックの開始/終了を追跡
+            if (line.trim().startsWith('```')) {
+                inCodeBlock = !inCodeBlock;
+                emptyLineCount = 0;
+                result.push(line);
+                continue;
+            }
+            
+            // コードブロック内では空行をそのまま保持
+            if (inCodeBlock) {
+                result.push(line);
+                continue;
+            }
+            
+            // コードブロック外での空行制限
+            if (line.trim() === '') {
+                emptyLineCount++;
+                // 最大2つの連続する空行まで許可
+                if (emptyLineCount <= 2) {
+                    result.push(line);
+                }
+            } else {
+                emptyLineCount = 0;
+                result.push(line);
+            }
+        }
+        
+        return result.join('\n');
     }
     
     /**

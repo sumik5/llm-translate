@@ -4,6 +4,7 @@ import { ERROR_MESSAGES, API_CONFIG } from './constants.js';
 import type APIClient from './api-client.js';
 import type ConfigManager from './config-manager.js';
 import type { ImageManager } from './image-manager.js';
+import type { ProtectedPattern } from './text-protection-utils.js';
 
 export interface ProgressCallback {
     (percentage: number, message: string): void;
@@ -57,11 +58,14 @@ export class TranslationService {
             throw new Error(validation.errors.join('; '));
         }
         
-        // Re-estimate tokens with target language for more accurate chunking
-        const estimatedTokens = TextProcessor.estimateTokens(text, targetLanguage);
+        // Pre-process text to protect technical patterns
+        const { protectedText, patterns } = TextProcessor.preProcessForTranslation(text);
+        
+        // Re-estimate tokens with target language for more accurate chunking (use protected text)
+        const estimatedTokens = TextProcessor.estimateTokens(protectedText, targetLanguage);
 
         // Sanitize text
-        let sanitizedText = TextProcessor.sanitizeText(text);
+        let sanitizedText = TextProcessor.sanitizeText(protectedText);
         
         if (imageManager) {
             sanitizedText = sanitizedText.replace(/!\[[^\]]*\]\(data:image\/[^)]+\)/g, (_match) => {
@@ -77,7 +81,8 @@ export class TranslationService {
                 sanitizedText, 
                 targetLanguage, 
                 apiUrl, 
-                modelName
+                modelName,
+                patterns
             );
         } else {
             return await this.translateChunked(
@@ -87,7 +92,8 @@ export class TranslationService {
                 modelName,
                 maxChunkTokens,
                 onProgress,
-                onChunkComplete
+                onChunkComplete,
+                patterns
             );
         }
     }
@@ -96,7 +102,8 @@ export class TranslationService {
         text: string, 
         targetLanguage: string, 
         apiUrl: string | null, 
-        modelName: string | null
+        modelName: string | null,
+        protectedPatterns: ProtectedPattern[]
     ): Promise<string> {
         try {
             this.abortController = new AbortController();
@@ -109,7 +116,7 @@ export class TranslationService {
                 this.abortController.signal
             );
 
-            return TextProcessor.postProcessTranslation(translatedText);
+            return TextProcessor.postProcessTranslation(translatedText, protectedPatterns);
         } catch (error) {
             if (error instanceof Error && error.name === 'AbortError') {
                 throw new Error(ERROR_MESSAGES.TRANSLATION_ABORTED);
@@ -127,7 +134,8 @@ export class TranslationService {
         modelName: string | null, 
         maxChunkTokens: number,
         onProgress: ProgressCallback | null,
-        onChunkComplete: ChunkCompleteCallback | null
+        onChunkComplete: ChunkCompleteCallback | null,
+        protectedPatterns: ProtectedPattern[]
     ): Promise<string> {
         const chunks = TextProcessor.splitTextIntoChunks(text, maxChunkTokens, targetLanguage);
         const translatedChunks: string[] = [];
@@ -156,7 +164,7 @@ export class TranslationService {
                     this.abortController.signal
                 );
 
-                const processedChunk = TextProcessor.postProcessTranslation(translatedChunk);
+                const processedChunk = TextProcessor.postProcessTranslation(translatedChunk, protectedPatterns);
                 translatedChunks.push(processedChunk);
 
                 if (onChunkComplete) {

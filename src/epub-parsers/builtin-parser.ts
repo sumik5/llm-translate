@@ -2,6 +2,7 @@
 // 既存のEPUB処理ロジックをパーサーとして実装
 
 import { BaseEPUBParser } from './base-epub-parser.js';
+import { isHtmlContentCode } from '../utils/code-detection.js';
 import type { 
     EPUBParserType,
     EPUBParserOptions,
@@ -523,9 +524,16 @@ export default class BuiltInEPUBParser extends BaseEPUBParser {
                     }
                     
                     case 'PRE': {
-                        markdown += '\n\n```\n';
-                        markdown += elementNode.textContent || '';
-                        markdown += '\n```\n\n';
+                        const content = elementNode.textContent || '';
+                        // PRE要素の内容がコードかどうかを判定
+                        if (isHtmlContentCode(content)) {
+                            markdown += '\n\n```\n';
+                            markdown += content;
+                            markdown += '\n```\n\n';
+                        } else {
+                            // コードではない場合は通常のテキストとして扱う
+                            markdown += '\n\n' + content + '\n\n';
+                        }
                         return;
                     }
                     

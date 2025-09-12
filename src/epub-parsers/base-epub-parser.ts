@@ -10,6 +10,8 @@ import type {
     EPUBParserError
 } from '../types/epub-parsers.js';
 import { ImageManager } from '../image-manager.js';
+import { isHtmlContentCode } from '../utils/code-detection.js';
+import { postProcessMarkdown } from '../utils/markdown-post-processor.js';
 
 /**
  * EPUBパーサーの基底抽象クラス
@@ -219,9 +221,17 @@ export abstract class BaseEPUBParser implements IEPUBParser {
         markdown = markdown.replace(/<img[^>]*alt="([^"]*)"[^>]*src="([^"]*)"[^>]*>/gi, '![$1]($2)');
         markdown = markdown.replace(/<img[^>]*src="([^"]*)"[^>]*>/gi, '![]($1)');
         
-        // コード
+        // コード（改善版）
         markdown = markdown.replace(/<code[^>]*>(.*?)<\/code>/gi, '`$1`');
-        markdown = markdown.replace(/<pre[^>]*>(.*?)<\/pre>/gis, '```\n$1\n```');
+        markdown = markdown.replace(/<pre[^>]*>(.*?)<\/pre>/gis, (_match, content) => {
+            // <pre>タグの内容がコードかどうかを判定
+            if (isHtmlContentCode(content)) {
+                return '```\n' + content + '\n```';
+            } else {
+                // コードではない場合は通常のテキストとして扱う
+                return content;
+            }
+        });
         
         // 引用
         markdown = markdown.replace(/<blockquote[^>]*>(.*?)<\/blockquote>/gis, (_match, content) => {
@@ -241,7 +251,30 @@ export abstract class BaseEPUBParser implements IEPUBParser {
         markdown = markdown.replace(/\n{3,}/g, '\n\n');
         markdown = markdown.trim();
         
+        // Markdown後処理を適用
+        markdown = postProcessMarkdown(markdown, {
+            codeThreshold: 0.4,
+            autoDetectLanguage: true,
+            removeEmptyCodeBlocks: true  // 空のコードブロックを除去
+        });
+        
         return markdown;
+    }
+    
+    /**
+     * Markdownコンテンツを正規化
+     */
+    protected normalizeMarkdown(markdown: string, applyPostProcessing: boolean = true): string {
+        if (applyPostProcessing) {
+            return postProcessMarkdown(markdown, {
+                codeThreshold: 0.4,
+                autoDetectLanguage: true,
+                removeEmptyCodeBlocks: true  // 空のコードブロックを除去
+            });
+        }
+        
+        // 基本的な正規化のみ
+        return markdown.replace(/\n{3,}/g, '\n\n').trim();
     }
     
     /**
@@ -253,7 +286,7 @@ export abstract class BaseEPUBParser implements IEPUBParser {
             '&lt;': '<',
             '&gt;': '>',
             '&quot;': '"',
-            '&#39;': "'",
+            '&#39;': '\'',
             '&nbsp;': ' ',
             '&mdash;': '—',
             '&ndash;': '–',

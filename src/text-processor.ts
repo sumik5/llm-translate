@@ -1,5 +1,6 @@
 // ==================== Text Processing Utilities ====================
 import { TOKEN_ESTIMATION, REGEX_PATTERNS, UNWANTED_PREFIXES, ERROR_MESSAGES } from './constants.js';
+import { TextProtectionUtils, type ProtectedPattern } from './text-protection-utils.js';
 // import type { ChunkType } from './types/index.js'; // Unused import commented out
 
 /**
@@ -150,6 +151,54 @@ class TextProcessor {
     }
 
     /**
+     * Pre-process text before translation to protect technical content
+     * @param text - Text to protect
+     * @returns Protected text and protection metadata
+     */
+    static preProcessForTranslation(text: string): { protectedText: string; patterns: ProtectedPattern[] } {
+        if (!text) {
+            return { protectedText: '', patterns: [] };
+        }
+
+        const patterns: ProtectedPattern[] = [];
+        let protectedText = text;
+        
+        // テーブル形式（Count\n-------\n     0）を保護
+        const simpleTablePattern = /(\n|^)([ \t]*)(Count|generate_series|[\w_]+)\n([ \t]*-{3,})\n([ \t]*\d+(?:\n[ \t]*\d+)*)/gi;
+        
+        let tableId = 1000;
+        protectedText = protectedText.replace(simpleTablePattern, (match, _leading, _indent, header, separator, data) => {
+            const placeholder = `\n[SIMPLETABLE${tableId++}]\n`;
+            patterns.push({
+                type: 'simple_table',
+                originalText: match.startsWith('\n') ? match.substring(1) : match,
+                placeholder: placeholder.trim(),
+                metadata: { header, separator, data }
+            });
+            return placeholder;
+        });
+        
+        // インデント付き数値のみの行を保護
+        const indentedNumberPattern = /(^|\n)([ \t]{4,})(\d+)\s*$/gm;
+        protectedText = protectedText.replace(indentedNumberPattern, (match, leading, indent, number) => {
+            const placeholder = `${leading}[INDENTNUM${number}]`;
+            patterns.push({
+                type: 'indented_number',
+                originalText: match,
+                placeholder: placeholder,
+                metadata: { indent, number }
+            });
+            return placeholder;
+        });
+
+        return {
+            protectedText: protectedText,
+            patterns: patterns
+        };
+    }
+
+
+    /**
      * Split text into manageable chunks
      * @param text - Text to split
      * @param maxTokens - Maximum tokens per chunk
@@ -233,11 +282,12 @@ class TextProcessor {
     }
 
     /**
-     * Post-process translated text to clean up formatting
+     * Post-process translated text to clean up formatting and restore protected patterns
      * @param text - Translated text
-     * @returns Cleaned text
+     * @param protectedPatterns - Patterns that were protected before translation (optional)
+     * @returns Cleaned and restored text
      */
-    static postProcessTranslation(text: string): string {
+    static postProcessTranslation(text: string, protectedPatterns?: ProtectedPattern[]): string {
         if (!text) return text;
         
         // Validate translated text
@@ -410,6 +460,17 @@ class TextProcessor {
         
         // 最終的なクリーンアップ
         result = result.trim();
+        
+        // 保護されたパターンがある場合は復元
+        if (protectedPatterns && protectedPatterns.length > 0) {
+            const restoreResult = TextProtectionUtils.restorePatterns(result, protectedPatterns);
+            result = restoreResult.restoredText;
+            
+            // デバッグ用：復元された数を確認（実際のプロダクトでは削除可能）
+            if (restoreResult.restoredCount > 0) {
+                console.debug(`Restored ${restoreResult.restoredCount} protected patterns`);
+            }
+        }
         
         return result;
     }

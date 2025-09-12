@@ -94,9 +94,35 @@ class MarkdownProcessor implements IMarkdownProcessor {
      * @param content - 正規化対象のマークダウン
      */
     normalizeMarkdown(content: string): string {
-        const sanitized = MarkdownFormatter.sanitizeForMarked(content);
+        // コードブロック末尾の不要な改行のみを除去（内部の空行は保持）
+        const cleanedCodeBlocks = this.cleanCodeBlockTrailingWhitespace(content);
+        const sanitized = MarkdownFormatter.sanitizeForMarked(cleanedCodeBlocks);
         return MarkdownFormatter.ensureProperSpacing(sanitized);
     }
+
+    /**
+     * コードブロック末尾の不要な空白のみを除去
+     * @param content - 処理対象のマークダウン
+     */
+    private cleanCodeBlockTrailingWhitespace(content: string): string {
+        return content.replace(/```([\w-]*)\n([\s\S]*?)\n```/g, (_match, lang, code) => {
+            // 末尾の空行のみを除去（内容は保持）
+            let trimmedCode = code;
+            
+            // 末尾の空行を除去
+            while (trimmedCode.endsWith('\n\n')) {
+                trimmedCode = trimmedCode.slice(0, -1);
+            }
+            
+            // 空のコードブロックは削除
+            if (!trimmedCode.trim()) {
+                return '';
+            }
+            
+            return '```' + lang + '\n' + trimmedCode + '\n```';
+        });
+    }
+
 
     private initializeMarked(): void {
         const renderer = new marked.Renderer();

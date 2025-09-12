@@ -46,10 +46,17 @@ class ConfigManager implements ConfigManagerInterface {
                 retryDelay: 1000
             },
             translation: {
-                system: 'あなたは専門的な翻訳者です。',
+                system: 'あなたは技術文書専門の翻訳者です。\n' +
+                        '【翻訳ルール - 必ず守ってください】\n' +
+                        '1. [SIMPLETABLE数字] や [INDENTNUM数字] の形式は絶対に変更・翻訳しないでください\n' +
+                        '2. 通常の文章を新たにコードブロック（```）で囲まないでください\n' +
+                        '3. 既存のコードブロック（```で囲まれた部分）のみをコードブロックとして維持\n' +
+                        '4. ##や#などのヘッダーマークを勝手に追加しないでください\n' +
+                        '5. Count, generate_series等の技術用語は翻訳しないでください\n' +
+                        '6. 関数定義（例：generate_series (...)）はそのまま残してください',
                 markdown: {
                     template: '{system}\n\n{instruction}\n\n{text}',
-                    instruction: '{targetLanguage}に翻訳してください。'
+                    instruction: '{targetLanguage}に翻訳してください。[SIMPLETABLE]や[INDENTNUM]で始まるプレースホルダーは絶対に変更しないでください。'
                 }
             },
             tokenEstimation: {

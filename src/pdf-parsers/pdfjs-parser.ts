@@ -3,6 +3,8 @@
 
 import { BasePDFParser, PDFParserError } from './base-pdf-parser.js';
 import { ImageManager } from '../image-manager.js';
+import { isIndentedCode } from '../utils/code-detection.js';
+import { postProcessMarkdown } from '../utils/markdown-post-processor.js';
 import type { 
     PDFParserInfo, 
     PDFParserOptions,
@@ -108,7 +110,15 @@ export class PDFJSParser extends BasePDFParser {
                 }
             }
             
-            const content = pages.join('');
+            let content = pages.join('');
+            
+            // Markdown後処理を適用
+            content = postProcessMarkdown(content, {
+                codeThreshold: 0.4,
+                autoDetectLanguage: true,
+                removeEmptyCodeBlocks: true  // 空のコードブロックを除去
+            });
+            
             return this.createProcessingResult(content, fileInfo, {
                 pageCount: pdf.numPages
             });
@@ -337,7 +347,7 @@ export class PDFJSParser extends BasePDFParser {
                     }
                     markdown += '### ' + lineText + '\n\n';
                     break;
-                case 'bullet':
+                case 'bullet': {
                     if (currentParagraph.length > 0) {
                         markdown += currentParagraph.join(' ') + '\n\n';
                         currentParagraph = [];
@@ -345,6 +355,7 @@ export class PDFJSParser extends BasePDFParser {
                     const cleanBullet = lineText.replace(/^[•·▪▫◦‣⁃➢➣→\-*]\s*/, '');
                     markdown += '- ' + cleanBullet + '\n';
                     break;
+                }
                 case 'numbered':
                     if (currentParagraph.length > 0) {
                         markdown += currentParagraph.join(' ') + '\n\n';
@@ -359,7 +370,7 @@ export class PDFJSParser extends BasePDFParser {
                     }
                     markdown += '```\n' + lineText + '\n```\n\n';
                     break;
-                default:
+                default: {
                     // 段落の処理
                     const startsWithCapital = /^[A-Z]/.test(lineText);
                     
@@ -372,6 +383,7 @@ export class PDFJSParser extends BasePDFParser {
                         currentParagraph.push(lineText);
                     }
                     break;
+                }
             }
             
             previousLineType = lineType;
@@ -437,9 +449,13 @@ export class PDFJSParser extends BasePDFParser {
         const isShort = lineText.length < 60;
         const isAllCaps = lineText === lineText.toUpperCase() && /[A-Z]/.test(lineText);
         
-        // コードパターン
+        // コードパターン（改善版）
         if (lineText.startsWith('    ') || lineText.startsWith('\t')) {
-            return 'code';
+            // インデントがあってもコードかどうかを詳細に判定
+            if (isIndentedCode(lineText)) {
+                return 'code';
+            }
+            // インデントがあるが通常の文章と判定された場合はparagraphとして扱う
         }
         
         // 見出しの検出

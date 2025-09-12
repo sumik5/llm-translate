@@ -132,7 +132,7 @@ export class PDFJSAdvancedParser extends BasePDFParser {
                 }
                 
                 // ページコンテンツを構築
-                let pageContent = this.buildPageContent(
+                const pageContent = this.buildPageContent(
                     structuredContent,
                     tables,
                     pageImages,

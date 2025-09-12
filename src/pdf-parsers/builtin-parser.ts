@@ -3,6 +3,8 @@
 
 import { BasePDFParser, PDFParserError } from './base-pdf-parser.js';
 import { ImageManager } from '../image-manager.js';
+import { isIndentedCode } from '../utils/code-detection.js';
+import { postProcessMarkdown } from '../utils/markdown-post-processor.js';
 import type { 
     PDFParserInfo, 
     PDFParserOptions
@@ -125,7 +127,15 @@ export class BuiltInParser extends BasePDFParser {
                 }
             }
             
-            const content = pages.join('');
+            let content = pages.join('');
+            
+            // Markdown後処理を適用
+            content = postProcessMarkdown(content, {
+                codeThreshold: 0.4,
+                autoDetectLanguage: true,
+                removeEmptyCodeBlocks: true  // 空のコードブロックを除去
+            });
+            
             return this.createProcessingResult(content, fileInfo, { pageCount: pdf.numPages });
         }, 'Built-in PDF parsing failed');
     }
@@ -433,9 +443,13 @@ export class BuiltInParser extends BasePDFParser {
         const isShort = lineText.length < 60;
         const isAllCaps = lineText === lineText.toUpperCase() && /[A-Z]/.test(lineText);
         
-        // コードライクなパターンをチェック
+        // コードライクなパターンをチェック（改善版）
         if (lineText.startsWith('    ') || lineText.startsWith('\t')) {
-            return 'code';
+            // インデントがあってもコードかどうかを詳細に判定
+            if (isIndentedCode(lineText)) {
+                return 'code';
+            }
+            // インデントがあるが通常の文章と判定された場合はparagraphとして扱う
         }
         
         // 複数の基準で見出しを検出
