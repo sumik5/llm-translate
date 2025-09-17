@@ -250,6 +250,9 @@ export default class LingoTurndownParser extends BaseEPUBParser {
             
             const processingTime = performance.now() - startTime;
             
+            // 不要な要素をクリーンアップ
+            content = this.cleanupMarkdown(content);
+
             const parseResult: EPUBParseResult = {
                 content: this.normalizeMarkdown(content, true),
                 processingTime,
@@ -271,6 +274,55 @@ export default class LingoTurndownParser extends BaseEPUBParser {
      * カスタムTurndownルールを追加
      */
     private addCustomTurndownRules(turndownService: TurndownService, options: EPUBParserOptions): void {
+        // EPUB内部リンクを除去するルール（最初に処理）
+        turndownService.addRule('epubInternalLinks', {
+            filter: (node: Element) => {
+                if (node.nodeName !== 'A') return false;
+                const href = node.getAttribute('href') || '';
+                // epub: で始まるリンク、または#で始まる内部アンカーリンクを検出
+                return href.startsWith('epub:') || href.match(/^#cb\d+-\d+$/);
+            },
+            replacement: (content: string, _node: Element) => {
+                // 空のリンクや改行のみの場合は完全に削除
+                if (!content.trim() || content === '\n') {
+                    return '';
+                }
+                // コンテンツがある場合はテキストのみ返す
+                return content;
+            }
+        });
+
+        // コードブロック内のリンクを適切に処理するルール
+        turndownService.addRule('codeBlockLinks', {
+            filter: (node: Element) => {
+                // pre要素内のa要素を検出
+                return node.nodeName === 'A' &&
+                       (node.closest('pre') !== null || node.closest('code') !== null);
+            },
+            replacement: (content: string, _node: Element) => {
+                // コードブロック内のリンクはプレーンテキストとして扱う
+                return content;
+            }
+        });
+
+        // CODE要素の処理ルール（PRE内のCODEは後のルールで処理される）
+        turndownService.addRule('codeBlocks', {
+            filter: (node: Element) => {
+                return node.nodeName === 'CODE' &&
+                       node.parentElement?.nodeName === 'PRE';
+            },
+            replacement: (_content: string, node: Element) => {
+                // CODE要素内のテキストを直接取得（HTMLタグを除去）
+                const textContent = node.textContent || '';
+
+                // 言語を検出（class属性から）
+                const className = node.getAttribute('class') || '';
+                const langMatch = className.match(/language-(\w+)/);
+                const lang = langMatch ? langMatch[1] : '';
+
+                return '\n\n```' + lang + '\n' + textContent + '\n```\n\n';
+            }
+        });
         // 画像の処理ルール
         if (options.extractImages && this.imageManager) {
             const pendingImages: Array<{ placeholder: string; src: string; alt: string }> = [];
@@ -301,13 +353,21 @@ export default class LingoTurndownParser extends BaseEPUBParser {
         // PRE要素のコード判定ルール
         turndownService.addRule('smartPre', {
             filter: 'pre',
-            replacement: (content: string) => {
+            replacement: (_content: string, node: Element) => {
+                // PRE要素内のテキストを直接取得（HTMLタグを除去）
+                const textContent = node.textContent || '';
+
                 // PRE要素の内容がコードかどうかを判定
-                if (isHtmlContentCode(content)) {
-                    return '\n\n```\n' + content + '\n```\n\n';
+                if (isHtmlContentCode(textContent)) {
+                    // 言語を検出（class属性から）
+                    const className = node.getAttribute('class') || '';
+                    const langMatch = className.match(/language-(\w+)/);
+                    const lang = langMatch ? langMatch[1] : '';
+
+                    return '\n\n```' + lang + '\n' + textContent + '\n```\n\n';
                 } else {
                     // コードではない場合は通常のテキストとして扱う
-                    return '\n\n' + content + '\n\n';
+                    return '\n\n' + textContent + '\n\n';
                 }
             }
         });
@@ -469,24 +529,50 @@ export default class LingoTurndownParser extends BaseEPUBParser {
             // インライン形式はTurndownルールで処理済み
             return content;
         }
-        
+
         // 参照形式の処理
         const footnoteRegex = /\^(\d+)\s*\^\s*/g;
         const footnotes: string[] = [];
         let footnoteIndex = 1;
-        
+
         const processedContent = content.replace(footnoteRegex, (_match, num) => {
             const footnoteRef = `[^${footnoteIndex}]`;
             footnotes.push(`[^${footnoteIndex}]: 脚注${num}`);
             footnoteIndex++;
             return footnoteRef;
         });
-        
+
         if (footnotes.length > 0) {
             return processedContent + '\n\n' + footnotes.join('\n');
         }
-        
+
         return processedContent;
     }
-    
+
+    /**
+     * Markdownコンテンツをクリーンアップ
+     */
+    private cleanupMarkdown(content: string): string {
+        // 孤立したアスタリスク（箇条書きではないもの）を除去
+        content = content.replace(/^\s*\*\s*$/gm, '');
+
+        // 空のリンク構造を除去
+        content = content.replace(/\[\s*\]\([^)]*\)/g, '');
+
+        // 連続する空行を2行までに制限
+        content = content.replace(/\n{3,}/g, '\n\n');
+
+        // 行頭の孤立したアスタリスク（箇条書きの誤検出）を除去
+        content = content.replace(/^\*\s*\n(?!\*)/gm, '');
+
+        // 意味のない強調記号のパターンを除去
+        content = content.replace(/^\[\s*\*\s*$/gm, '');
+        content = content.replace(/^\s*\*\s*\]$/gm, '');
+
+        // EPUBリンクの残骸を除去（念のため）
+        content = content.replace(/\(epub:EPUB\/[^)]+\)/g, '');
+
+        return content;
+    }
+
 }
