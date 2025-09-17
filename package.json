@@ -1,21 +1,12 @@
 {
-  "name": "llm-translate",
-  "version": "1.1.0",
-  "description": "LLM Translation Tool",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "build": "npm run type-check && node esbuild.config.js",
-    "build:old": "node build.js",
-    "build:watch": "node esbuild.config.js --watch",
-    "type-check": "tsc --noEmit",
-    "dev": "node esbuild.config.js --watch",
-    "dev:full": "python3 -m http.server 8000 & npm run dev",
-    "lint": "eslint src/**/*.ts --ext .ts",
-    "lint:fix": "eslint src/**/*.ts --ext .ts --fix",
-    "clean": "rm -rf dist/ translator.bundle.js translator.min.js",
-    "serve": "python3 -m http.server 8000"
+  "dependencies": {
+    "@lingo-reader/epub-parser": "^0.4.0",
+    "buffer": "^6.0.3",
+    "epubjs": "^0.3.93",
+    "turndown": "^7.2.1",
+    "unpdf": "^1.2.2"
   },
+  "description": "LLM Translation Tool",
   "devDependencies": {
     "@types/node": "^20.10.6",
     "@types/turndown": "^5.0.5",
@@ -26,11 +17,20 @@
     "eslint": "^8.56.0",
     "typescript": "^5.9.2"
   },
-  "dependencies": {
-    "@lingo-reader/epub-parser": "^0.4.0",
-    "buffer": "^6.0.3",
-    "epubjs": "^0.3.93",
-    "turndown": "^7.2.1",
-    "unpdf": "^1.2.2"
-  }
+  "name": "llm-translate",
+  "private": true,
+  "scripts": {
+    "build": "npm run type-check \u0026\u0026 node esbuild.config.js",
+    "build:old": "node build.js",
+    "build:watch": "node esbuild.config.js --watch",
+    "clean": "rm -rf dist/ translator.bundle.js translator.min.js",
+    "dev": "node esbuild.config.js --watch",
+    "dev:full": "python3 -m http.server 8000 \u0026 npm run dev",
+    "lint": "eslint src/**/*.ts --ext .ts",
+    "lint:fix": "eslint src/**/*.ts --ext .ts --fix",
+    "serve": "python3 -m http.server 8000",
+    "type-check": "tsc --noEmit"
+  },
+  "type": "module",
+  "version": "1.1.1"
 }
