@@ -188,13 +188,15 @@ export class MarkdownFormatter {
     static toHtml(markdown: string): string {
         try {
             const sanitized = this.sanitizeForMarked(markdown);
-            const preprocessed = this.preprocessCodeBlocks(sanitized);
-            
+            const tableProcessed = this.preprocessTablesStrict(sanitized);
+            const preprocessed = this.preprocessCodeBlocks(tableProcessed);
+
             if (preprocessed.includes('data:image/') || preprocessed.includes('data:application/octet-stream')) {
                 return this.convertBase64ImagesToHtml(preprocessed);
             }
-            
-            return marked.parse(preprocessed);
+
+            const html = marked.parse(preprocessed);
+            return this.postProcessHtml(html);
         } catch (error) {
             console.error('Markdown parsing error:', error);
             return this.fallbackToPlainText(markdown);
@@ -322,31 +324,113 @@ export class MarkdownFormatter {
     }
 
     /**
+     * テーブルの前処理（厳密版 - テーブルを確実に分離）
+     * @param markdown - 処理対象のMarkdown
+     * @returns 処理後のMarkdown
+     */
+    private static preprocessTablesStrict(markdown: string): string {
+        const lines = markdown.split('\n');
+        const result: string[] = [];
+        let inTable = false;
+        let tableLines: string[] = [];
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+
+            // テーブル行の判定（パイプで始まり、パイプで終わる）
+            const isTableLine = /^\s*\|.*\|\s*$/.test(line || '');
+            // テーブル区切り行の判定
+            const isSeparatorLine = /^\s*\|[\s\-:|]+\|\s*$/.test(line || '');
+
+            if (isTableLine || isSeparatorLine) {
+                // テーブル行
+                if (!inTable) {
+                    inTable = true;
+                    tableLines = [];
+                }
+                tableLines.push(line || '');
+            } else {
+                // テーブルではない行
+                if (inTable) {
+                    // テーブルが終了した
+                    inTable = false;
+                    if (tableLines.length > 0) {
+                        // テーブルを出力
+                        result.push(...tableLines);
+                        // テーブル後に区切り文字を追加（HTMLで確実に分離するため）
+                        result.push('');
+                        result.push('<!-- TABLE_END -->');
+                        result.push('');
+                    }
+                    tableLines = [];
+                }
+                // 通常の行を追加
+                result.push(line || '');
+            }
+        }
+
+        // 最後にテーブルが残っている場合
+        if (inTable && tableLines.length > 0) {
+            result.push(...tableLines);
+            result.push('');
+            result.push('<!-- TABLE_END -->');
+            result.push('');
+        }
+
+        return result.join('\n');
+    }
+
+    /**
+     * HTML後処理（テーブルの区切りを確実にする）
+     * @param html - 処理対象のHTML
+     * @returns 処理後のHTML
+     */
+    private static postProcessHtml(html: string): string {
+        // TABLE_ENDマーカーを削除しつつ、テーブル後の要素が正しく分離されるように処理
+        let processedHtml = html.replace(/<!-- TABLE_END -->/g, '');
+
+        // テーブルの直後にある要素が誤ってテーブル内に入らないように修正
+        // </table>の直後に段落がある場合、確実に分離
+        processedHtml = processedHtml.replace(/<\/table>\s*([^<])/g, '</table>\n\n<p>$1');
+
+        // 連続する改行やスペースを正規化
+        processedHtml = processedHtml.replace(/\n{3,}/g, '\n\n');
+
+        return processedHtml;
+    }
+
+    /**
      * コードブロックの前処理
      * @param markdown - 処理対象のMarkdown
      * @returns 処理後のMarkdown
      */
     private static preprocessCodeBlocks(markdown: string): string {
+        // ```で囲まれたコードブロックのみを処理
+        // インラインコードの自動検出は行わない
         const lines = markdown.split('\n');
         const processedLines: string[] = [];
         let inCodeBlock = false;
-        
+
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
-            if (!line) continue;
-            
+            if (!line) {
+                processedLines.push('');
+                continue;
+            }
+
             if (line.trim().startsWith('```')) {
                 inCodeBlock = !inCodeBlock;
-                processedLines.push(line || '');
-                
+                processedLines.push(line);
+
+                // コードブロック終了後に空行を追加
                 if (!inCodeBlock && i < lines.length - 1 && lines[i + 1]?.trim() !== '') {
                     processedLines.push('');
                 }
             } else {
-                processedLines.push(line || '');
+                processedLines.push(line);
             }
         }
-        
+
         return processedLines.join('\n');
     }
 }

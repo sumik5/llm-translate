@@ -143,7 +143,7 @@ class MarkdownProcessor implements IMarkdownProcessor {
         
         marked.setOptions?.({
             renderer: renderer,
-            breaks: true,
+            breaks: false,
             gfm: true,
             pedantic: false,
             headerIds: false,

@@ -357,16 +357,24 @@ export default class LingoTurndownParser extends BaseEPUBParser {
                 // PRE要素内のテキストを直接取得（HTMLタグを除去）
                 const textContent = node.textContent || '';
 
-                // PRE要素の内容がコードかどうかを判定
-                if (isHtmlContentCode(textContent)) {
-                    // 言語を検出（class属性から）
-                    const className = node.getAttribute('class') || '';
-                    const langMatch = className.match(/language-(\w+)/);
-                    const lang = langMatch ? langMatch[1] : '';
+                // PRE要素は基本的にコードブロックとして扱う
+                // ただし、明らかに自然言語の場合は除外
+                const hasJapanese = /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf\u3400-\u4dbf]/.test(textContent);
+                const hasLongSentence = textContent.length > 100 && (textContent.match(/[.。!！?？]/g) || []).length > 2;
 
+                // 言語を検出（class属性から）
+                const className = node.getAttribute('class') || '';
+                const langMatch = className.match(/language-(\w+)/);
+                const lang = langMatch ? langMatch[1] : '';
+
+                if (!hasJapanese && !hasLongSentence) {
+                    // コードブロックとして処理
+                    return '\n\n```' + lang + '\n' + textContent + '\n```\n\n';
+                } else if (isHtmlContentCode(textContent)) {
+                    // 日本語を含んでいてもコードスコアが高い場合
                     return '\n\n```' + lang + '\n' + textContent + '\n```\n\n';
                 } else {
-                    // コードではない場合は通常のテキストとして扱う
+                    // 通常のテキストとして扱う
                     return '\n\n' + textContent + '\n\n';
                 }
             }

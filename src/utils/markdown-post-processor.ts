@@ -20,43 +20,296 @@ export interface MarkdownPostProcessOptions {
 }
 
 /**
- * プログラミング言語の検出パターン
+ * プログラミング言語の検出パターン（優先順位順）
  */
 const LANGUAGE_PATTERNS = [
-    { pattern: /^\s*(function|const|let|var|class|import|export)\s/m, lang: 'javascript' },
-    { pattern: /^\s*(def|class|import|from)\s/m, lang: 'python' },
-    { pattern: /^\s*(public|private|class|interface|package)\s/m, lang: 'java' },
-    { pattern: /^\s*(#include|int main|printf|scanf)\s/m, lang: 'c' },
-    { pattern: /^\s*(using|namespace|class|struct)\s/m, lang: 'cpp' },
-    { pattern: /^\s*(namespace|using|class|public class)\s/m, lang: 'csharp' },
-    { pattern: /^\s*(def|class|require|include)\s/m, lang: 'ruby' },
-    { pattern: /^\s*(package|import|func|var|type)\s/m, lang: 'go' },
-    { pattern: /^\s*(fn|let|mut|struct|impl)\s/m, lang: 'rust' },
-    { pattern: /^\s*(function|class|\$\w+|echo)\s/m, lang: 'php' },
-    { pattern: /^\s*(SELECT|INSERT|UPDATE|DELETE|CREATE TABLE)\s/im, lang: 'sql' },
-    { pattern: /^\s*<(!DOCTYPE|html|head|body|div|span)/im, lang: 'html' },
-    { pattern: /^\s*[\w-]+\s*:\s*[\w#-]/m, lang: 'css' },
-    { pattern: /^\s*\{[\s\S]*"[\w-]+"\s*:/m, lang: 'json' },
-    { pattern: /^\s*<\?xml|<[a-zA-Z][^>]*>/m, lang: 'xml' }
+    // Python - 最も特徴的なパターンから順に
+    {
+        patterns: [
+            /^\s*from\s+[\w.]+\s+import\s+/m,  // from ... import文
+            /^\s*@\w+(\([^)]*\))?$/m,           // デコレーター
+            /^\s*def\s+\w+\s*\([^)]*\)\s*:/m,   // 関数定義
+            /^\s*class\s+\w+(\([^)]*\))?\s*:/m, // クラス定義
+            /^\s*if\s+__name__\s*==\s*['"]__main__['"]\s*:/m, // メインガード
+            /^\s*(elif|except|finally|yield|lambda|with\s+.+\s+as)\s+/m, // Python固有キーワード
+            /print\s*\([^)]*\)/m,               // print関数
+            /^\s*"""[\s\S]*?"""/m,              // ドキュメント文字列
+        ],
+        lang: 'python',
+        score: (content: string) => {
+            let score = 0;
+            if (/from\s+\w+\s+import/.test(content)) score += 3;
+            if (/def\s+\w+\s*\([^)]*\)\s*:/.test(content)) score += 3;
+            if (/^\s+/m.test(content) && !content.includes('{')) score += 1; // インデントベース
+            if (content.includes('self')) score += 2;
+            if (content.includes('__')) score += 1;
+            return score;
+        }
+    },
+
+    // JavaScript/TypeScript
+    {
+        patterns: [
+            /^\s*(const|let|var)\s+\w+\s*=/m,   // 変数宣言
+            /^\s*function\s+\w+\s*\([^)]*\)\s*\{/m, // 関数定義
+            /^\s*async\s+(function|\w+)/m,      // async関数
+            /=>\s*\{?/m,                        // アロー関数
+            /^\s*class\s+\w+(\s+extends\s+\w+)?\s*\{/m, // クラス定義
+            /^\s*(import|export)\s+(\{[^}]*\}|\*|default)/m, // ES6 import/export
+            /console\.(log|error|warn)/m,       // console
+            /\.(then|catch|finally)\s*\(/m,     // Promise
+        ],
+        lang: 'javascript',
+        score: (content: string) => {
+            let score = 0;
+            if (/=>\s*\{?/.test(content)) score += 3;
+            if (/(const|let|var)\s+\w+\s*=/.test(content)) score += 2;
+            if (/function\s*\([^)]*\)\s*\{/.test(content)) score += 2;
+            if (content.includes('console.')) score += 2;
+            if (content.includes('async') || content.includes('await')) score += 2;
+            return score;
+        }
+    },
+
+    // TypeScript（JavaScriptの後にチェック）
+    {
+        patterns: [
+            /^\s*interface\s+\w+\s*\{/m,        // インターフェース
+            /^\s*type\s+\w+\s*=/m,              // 型エイリアス
+            /:\s*(string|number|boolean|void|any|unknown|never)/m, // 型注釈
+            /^\s*enum\s+\w+\s*\{/m,             // enum
+            /<[A-Z]\w*>/,                       // ジェネリクス
+        ],
+        lang: 'typescript',
+        score: (content: string) => {
+            let score = 0;
+            if (/interface\s+\w+/.test(content)) score += 3;
+            if (/:\s*(string|number|boolean)/.test(content)) score += 3;
+            if (/type\s+\w+\s*=/.test(content)) score += 2;
+            return score;
+        }
+    },
+
+    // Java
+    {
+        patterns: [
+            /^\s*(public|private|protected)\s+(static\s+)?class\s+/m, // クラス定義
+            /^\s*package\s+[\w.]+;/m,           // パッケージ宣言
+            /^\s*import\s+[\w.]+;/m,            // import文（セミコロン付き）
+            /^\s*(public|private|protected)\s+\w+\s+\w+\s*\([^)]*\)/m, // メソッド定義
+            /System\.out\.print/m,              // 標準出力
+            /^\s*@\w+(\([^)]*\))?$/m,           // アノテーション
+            /\bnew\s+\w+\s*\([^)]*\)/m,         // インスタンス生成
+        ],
+        lang: 'java',
+        score: (content: string) => {
+            let score = 0;
+            if (/public\s+class/.test(content)) score += 3;
+            if (/System\.out/.test(content)) score += 3;
+            if (/import\s+[\w.]+;/.test(content)) score += 2;
+            if (content.includes(';') && content.includes('{')) score += 1;
+            return score;
+        }
+    },
+
+    // Go
+    {
+        patterns: [
+            /^\s*package\s+\w+$/m,              // パッケージ宣言
+            /^\s*import\s+\(/m,                 // 複数import
+            /^\s*func\s+(\(\w+\s+\*?\w+\)\s+)?\w+\s*\([^)]*\)/m, // 関数定義
+            /^\s*type\s+\w+\s+(struct|interface)\s*\{/m, // 型定義
+            /fmt\.Print/m,                      // fmt パッケージ
+            /:=\s*/m,                            // 短縮変数宣言
+            /^\s*go\s+\w+/m,                    // goroutine
+        ],
+        lang: 'go',
+        score: (content: string) => {
+            let score = 0;
+            if (/func\s+/.test(content)) score += 3;
+            if (/:=/.test(content)) score += 3;
+            if (/package\s+\w+$/.test(content)) score += 2;
+            if (content.includes('fmt.')) score += 2;
+            return score;
+        }
+    },
+
+    // Ruby
+    {
+        patterns: [
+            /^\s*def\s+\w+(\([^)]*\))?$/m,      // メソッド定義
+            /^\s*class\s+\w+(\s*<\s*\w+)?$/m,   // クラス定義
+            /^\s*require\s+['"][\w\/]+['"]/m,   // require
+            /^\s*attr_(reader|writer|accessor)/m, // 属性
+            /^\s*module\s+\w+/m,                // モジュール
+            /puts\s+/m,                         // puts
+            /^\s*end$/m,                        // end キーワード
+        ],
+        lang: 'ruby',
+        score: (content: string) => {
+            let score = 0;
+            if (/def\s+\w+/.test(content) && /end$/.test(content)) score += 3;
+            if (/require\s+['"]/.test(content)) score += 2;
+            if (content.includes('puts')) score += 2;
+            return score;
+        }
+    },
+
+    // 他の言語（簡略化）
+    { patterns: [/^\s*#include\s*<\w+>/m, /int\s+main\s*\(/m], lang: 'c' },
+    { patterns: [/^\s*using\s+namespace/m, /std::/m, /cout\s*<</m], lang: 'cpp' },
+    { patterns: [/^\s*namespace\s+\w+/m, /^\s*using\s+System/m], lang: 'csharp' },
+    { patterns: [/^\s*fn\s+\w+/m, /let\s+mut\s+/m, /impl\s+\w+/m], lang: 'rust' },
+    { patterns: [/^\s*<\?php/m, /\$\w+\s*=/m, /echo\s+/m], lang: 'php' },
+    { patterns: [/^\s*(SELECT|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP)\s+/im], lang: 'sql' },
+    { patterns: [/^\s*<(!DOCTYPE|html|head|body)/im, /<\/\w+>/m], lang: 'html' },
+    { patterns: [/^\s*\{[\s\S]*"[\w-]+"\s*:/m, /^\s*\[[\s\S]*\]$/m], lang: 'json' },
 ];
 
 /**
- * テキストからプログラミング言語を推定
+ * テキストからプログラミング言語を推定（スコアリング方式）
  */
 function detectLanguage(content: string): string {
-    for (const { pattern, lang } of LANGUAGE_PATTERNS) {
-        if (pattern.test(content)) {
-            return lang;
+    const scores: { [key: string]: number } = {};
+
+    // 各言語のスコアを計算
+    for (const langDef of LANGUAGE_PATTERNS) {
+        let matched = false;
+
+        // パターンマッチング
+        if ('patterns' in langDef && Array.isArray(langDef.patterns)) {
+            for (const pattern of langDef.patterns) {
+                if (pattern.test(content)) {
+                    matched = true;
+                    scores[langDef.lang] = (scores[langDef.lang] || 0) + 1;
+                }
+            }
+        }
+
+        // スコア関数がある場合は追加スコアを計算
+        if (matched && 'score' in langDef && typeof langDef.score === 'function') {
+            scores[langDef.lang] = (scores[langDef.lang] || 0) + langDef.score(content);
         }
     }
-    return '';
+
+    // 最高スコアの言語を返す
+    let maxScore = 0;
+    let detectedLang = '';
+
+    for (const [lang, score] of Object.entries(scores)) {
+        if (score > maxScore) {
+            maxScore = score;
+            detectedLang = lang;
+        }
+    }
+
+    // Pythonの特別チェック（from ... import がある場合は確実にPython）
+    if (/from\s+[\w.]+\s+import\s+/m.test(content)) {
+        return 'python';
+    }
+
+    return detectedLang;
+}
+
+/**
+ * インラインコード（段落内のコード）を検出して```で囲む
+ */
+function detectAndWrapInlineCode(markdown: string, threshold: number): string {
+    const lines = markdown.split('\n');
+    const result: string[] = [];
+    let codeLines: string[] = [];
+    let inCodeBlock = false;
+    let inFencedBlock = false;
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i] || '';
+        const trimmedLine = line.trim();
+
+        // 既存のコードブロックの開始/終了を追跡
+        if (trimmedLine.startsWith('```')) {
+            inFencedBlock = !inFencedBlock;
+            result.push(line);
+            continue;
+        }
+
+        // フェンス内はそのまま
+        if (inFencedBlock) {
+            result.push(line);
+            continue;
+        }
+
+        // コード行の判定条件
+        const isCodeStart = /^(from\s+[\w.]+\s+import|import\s+[\w.,\s]+|@\w+|def\s+|class\s+)/.test(trimmedLine);
+        const isCodeLine = /^(from\s+|import\s+|def\s+|class\s+|@|#|\s+|\w+\s*=|\w+\(|if\s+|for\s+|while\s+|return\s+|print\(|\)\s*$)/.test(trimmedLine) ||
+                          /^(graph|convo|result|example_order|AIMessage|HumanMessage|SystemMessage|ToolMessage|StateGraph|ChatOpenAI|tool|order|prompt|msgs|out|full|first|second|tc)/.test((trimmedLine.split(/[\s(=]/)[0] || ''));
+
+        if (isCodeStart && !inCodeBlock) {
+            // コードブロック開始
+            inCodeBlock = true;
+            codeLines = [line];
+        } else if (inCodeBlock) {
+            if (trimmedLine === '') {
+                // 空行はコードブロックに含める
+                codeLines.push(line);
+            } else if (isCodeLine || (trimmedLine.includes('(') && trimmedLine.includes(')')) || trimmedLine.includes('=') || trimmedLine.includes('{') || trimmedLine.includes('}')) {
+                // コード行
+                codeLines.push(line);
+            } else if (codeLines.length > 2) {
+                // コードブロック終了（複数行のコード）
+                const codeContent = codeLines.join('\n');
+                const score = calculateCodeScore(codeContent);
+
+                if (score >= threshold) {
+                    // 言語を検出
+                    const lang = detectLanguage(codeContent) || 'python';
+                    result.push('```' + lang);
+                    result.push(...codeLines);
+                    result.push('```');
+                } else {
+                    // コードとしてのスコアが低い場合はそのまま
+                    result.push(...codeLines);
+                }
+
+                inCodeBlock = false;
+                codeLines = [];
+                result.push(line);
+            } else {
+                // 短いコードブロックはそのまま
+                result.push(...codeLines);
+                inCodeBlock = false;
+                codeLines = [];
+                result.push(line);
+            }
+        } else {
+            result.push(line);
+        }
+    }
+
+    // 残りのコードブロックを処理
+    if (inCodeBlock && codeLines.length > 2) {
+        const codeContent = codeLines.join('\n');
+        const score = calculateCodeScore(codeContent);
+
+        if (score >= threshold) {
+            const lang = detectLanguage(codeContent) || 'python';
+            result.push('```' + lang);
+            result.push(...codeLines);
+            result.push('```');
+        } else {
+            result.push(...codeLines);
+        }
+    } else if (codeLines.length > 0) {
+        result.push(...codeLines);
+    }
+
+    return result.join('\n');
 }
 
 /**
  * Markdownコンテンツを後処理して品質を向上させる
  */
 export function postProcessMarkdown(
-    markdown: string, 
+    markdown: string,
     options: MarkdownPostProcessOptions = {}
 ): string {
     const {
@@ -67,6 +320,9 @@ export function postProcessMarkdown(
     } = options;
 
     let processed = markdown;
+
+    // 0. インラインコード（from/importから始まる連続したコード）を検出して```で囲む
+    processed = detectAndWrapInlineCode(processed, codeThreshold);
 
     // 1. 空のコードブロックを削除（より包括的に）
     if (removeEmptyCodeBlocks) {

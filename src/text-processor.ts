@@ -162,10 +162,27 @@ class TextProcessor {
 
         const patterns: ProtectedPattern[] = [];
         let protectedText = text;
-        
+
+        // コードブロックを最優先で保護（```で囲まれたブロック）
+        let codeBlockId = 1;
+        const codeBlockPattern = /```[\w]*\n[\s\S]*?\n```/g;
+        protectedText = protectedText.replace(codeBlockPattern, (match) => {
+            const placeholder = `[CODEBLOCK${codeBlockId++}]`;
+            patterns.push({
+                type: 'code_block',
+                originalText: match,
+                placeholder: placeholder,
+                metadata: {}
+            });
+            return placeholder;
+        });
+
+        // インラインコードブロックの保護は複雑になりすぎたため、一旦無効化
+        // コードブロック（```）のみを保護し、インラインコードは翻訳時に自然に処理させる
+
         // テーブル形式（Count\n-------\n     0）を保護
         const simpleTablePattern = /(\n|^)([ \t]*)(Count|generate_series|[\w_]+)\n([ \t]*-{3,})\n([ \t]*\d+(?:\n[ \t]*\d+)*)/gi;
-        
+
         let tableId = 1000;
         protectedText = protectedText.replace(simpleTablePattern, (match, _leading, _indent, header, separator, data) => {
             const placeholder = `\n[SIMPLETABLE${tableId++}]\n`;
@@ -177,7 +194,7 @@ class TextProcessor {
             });
             return placeholder;
         });
-        
+
         // インデント付き数値のみの行を保護
         const indentedNumberPattern = /(^|\n)([ \t]{4,})(\d+)\s*$/gm;
         protectedText = protectedText.replace(indentedNumberPattern, (match, leading, indent, number) => {

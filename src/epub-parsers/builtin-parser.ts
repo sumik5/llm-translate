@@ -525,13 +525,23 @@ export default class BuiltInEPUBParser extends BaseEPUBParser {
                     
                     case 'PRE': {
                         const content = elementNode.textContent || '';
-                        // PRE要素の内容がコードかどうかを判定
-                        if (isHtmlContentCode(content)) {
+                        // PRE要素は基本的にコードブロックとして扱う
+                        // ただし、明らかに自然言語の場合は除外
+                        const hasJapanese = /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf\u3400-\u4dbf]/.test(content);
+                        const hasLongSentence = content.length > 100 && (content.match(/[.。!！?？]/g) || []).length > 2;
+
+                        if (!hasJapanese && !hasLongSentence) {
+                            // コードブロックとして処理
+                            markdown += '\n\n```\n';
+                            markdown += content;
+                            markdown += '\n```\n\n';
+                        } else if (isHtmlContentCode(content)) {
+                            // 日本語を含んでいてもコードスコアが高い場合
                             markdown += '\n\n```\n';
                             markdown += content;
                             markdown += '\n```\n\n';
                         } else {
-                            // コードではない場合は通常のテキストとして扱う
+                            // 通常のテキストとして扱う
                             markdown += '\n\n' + content + '\n\n';
                         }
                         return;
