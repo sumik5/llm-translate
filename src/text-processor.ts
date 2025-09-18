@@ -216,7 +216,7 @@ class TextProcessor {
 
 
     /**
-     * Split text into manageable chunks
+     * Split text into manageable chunks while preserving semantic units
      * @param text - Text to split
      * @param maxTokens - Maximum tokens per chunk
      * @param targetLanguage - Target language for token estimation
@@ -229,55 +229,320 @@ class TextProcessor {
             throw new Error(validation.errors.join('; '));
         }
 
-        const lines = text.split(/\r?\n/);
+        const semanticUnits = this.identifySemanticUnits(text);
         const chunks: string[] = [];
         let currentChunk = '';
         let currentTokens = 0;
-        let inCodeBlock = false;
-        let codeBlockDepth = 0;
-        
-        for (const line of lines) {
-            const lineTokens = this.estimateTokens(line, targetLanguage);
-            const trimmedLine = line.trim();
-            
-            // Track code block depth to handle nested or multiple code blocks
-            if (REGEX_PATTERNS.CODE_BLOCK_START.test(trimmedLine)) {
-                codeBlockDepth++;
-                inCodeBlock = codeBlockDepth > 0;
-            }
-            if (REGEX_PATTERNS.CODE_BLOCK_END.test(trimmedLine)) {
-                codeBlockDepth = Math.max(0, codeBlockDepth - 1);
-                inCodeBlock = codeBlockDepth > 0;
-            }
-            
-            // Check if adding this line would exceed the token limit
-            if (currentTokens + lineTokens > maxTokens && currentChunk) {
-                // If we're in a code block, we need to be more careful about splitting
-                const shouldSplit = !inCodeBlock || 
-                                   currentTokens > maxTokens * 0.9 || // Already using 90% of limit
-                                   (currentTokens + lineTokens) > maxTokens * 1.2; // Would exceed 120% of limit
-                
-                if (shouldSplit) {
-                    chunks.push(this.finalizeChunk(currentChunk, inCodeBlock));
-                    currentChunk = line + '\n';
-                    currentTokens = lineTokens;
-                } else {
-                    // Continue adding to current chunk even though it exceeds limit
-                    // This is only for code blocks to keep them together
-                    currentChunk += line + '\n';
-                    currentTokens += lineTokens;
+
+        for (const unit of semanticUnits) {
+            const unitTokens = this.estimateTokens(unit.content, targetLanguage);
+
+            // If a single unit exceeds max tokens, it needs special handling
+            if (unitTokens > maxTokens) {
+                // Finalize current chunk if it has content
+                if (currentChunk.trim()) {
+                    chunks.push(currentChunk.trim());
+                    currentChunk = '';
+                    currentTokens = 0;
                 }
+
+                // Handle oversized unit based on its type
+                if (unit.type === 'paragraph' || unit.type === 'text') {
+                    // Split large paragraphs by sentences
+                    const splitUnits = this.splitLargeUnit(unit.content, maxTokens, targetLanguage);
+                    chunks.push(...splitUnits);
+                } else {
+                    // For code blocks, tables, and lists, keep them intact even if oversized
+                    // This ensures semantic integrity
+                    chunks.push(unit.content);
+                }
+            }
+            // Check if adding this unit would exceed the token limit
+            else if (currentTokens + unitTokens > maxTokens && currentChunk) {
+                // Start a new chunk
+                chunks.push(currentChunk.trim());
+                currentChunk = unit.content;
+                currentTokens = unitTokens;
             } else {
-                currentChunk += line + '\n';
-                currentTokens += lineTokens;
+                // Add to current chunk
+                if (currentChunk && !currentChunk.endsWith('\n')) {
+                    currentChunk += '\n';
+                }
+                currentChunk += unit.content;
+                currentTokens += unitTokens;
             }
         }
-        
+
         // Add remaining chunk
         if (currentChunk.trim()) {
-            chunks.push(this.finalizeChunk(currentChunk, inCodeBlock));
+            chunks.push(currentChunk.trim());
         }
-        
+
+        return chunks;
+    }
+
+    /**
+     * Identify semantic units in text (paragraphs, code blocks, tables, lists)
+     * @param text - Text to analyze
+     * @returns Array of semantic units
+     */
+    private static identifySemanticUnits(text: string): Array<{type: string; content: string}> {
+        const units: Array<{type: string; content: string}> = [];
+        const lines = text.split(/\r?\n/);
+        let currentUnit = '';
+        let currentType = 'text';
+        let inCodeBlock = false;
+        let inTable = false;
+        let inList = false;
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i] || '';
+            const trimmedLine = line.trim();
+            const nextLine = lines[i + 1];
+            const nextTrimmedLine = nextLine?.trim() || '';
+
+            // Check for code block
+            if (REGEX_PATTERNS.CODE_BLOCK_START.test(trimmedLine)) {
+                // Save current unit if exists
+                if (currentUnit.trim()) {
+                    units.push({ type: currentType, content: currentUnit.trim() });
+                    currentUnit = '';
+                }
+                inCodeBlock = true;
+                currentType = 'code_block';
+                currentUnit = line || '';
+            }
+            else if (inCodeBlock) {
+                currentUnit += '\n' + line;
+                if (REGEX_PATTERNS.CODE_BLOCK_END.test(trimmedLine)) {
+                    units.push({ type: currentType, content: currentUnit.trim() });
+                    currentUnit = '';
+                    inCodeBlock = false;
+                    currentType = 'text';
+                }
+            }
+            // Check for table (Markdown tables with |)
+            else if (line && this.isTableLine(line)) {
+                if (!inTable) {
+                    // Save current unit and start table
+                    if (currentUnit.trim()) {
+                        units.push({ type: currentType, content: currentUnit.trim() });
+                        currentUnit = '';
+                    }
+                    inTable = true;
+                    currentType = 'table';
+                }
+                currentUnit += (currentUnit ? '\n' : '') + line;
+
+                // Check if next line is not a table line
+                if (!nextLine || !this.isTableLine(nextLine)) {
+                    units.push({ type: currentType, content: currentUnit.trim() });
+                    currentUnit = '';
+                    inTable = false;
+                    currentType = 'text';
+                }
+            }
+            // Check for list items
+            else if (line && this.isListItem(line)) {
+                const currentIndent = this.getListIndentLevel(line);
+
+                if (!inList) {
+                    // Save current unit and start list
+                    if (currentUnit.trim()) {
+                        units.push({ type: currentType, content: currentUnit.trim() });
+                        currentUnit = '';
+                    }
+                    inList = true;
+                    currentType = 'list';
+                }
+
+                currentUnit += (currentUnit ? '\n' : '') + line;
+
+                // Check if next line continues the list
+                const nextIsListItem = nextLine ? this.isListItem(nextLine) : false;
+                const nextIndent = nextLine ? this.getListIndentLevel(nextLine) : 0;
+                const nextIsIndentedText = nextLine && !nextTrimmedLine && lines[i + 2] &&
+                                           (lines[i + 2]?.startsWith('  ') || false);
+
+                if (!nextIsListItem && !nextIsIndentedText && nextTrimmedLine !== '') {
+                    // End of list
+                    units.push({ type: currentType, content: currentUnit.trim() });
+                    currentUnit = '';
+                    inList = false;
+                    currentType = 'text';
+                } else if (nextIsListItem && Math.abs(nextIndent - currentIndent) > 4) {
+                    // Significant indent change might indicate a new list
+                    if (nextIndent < currentIndent - 4) {
+                        units.push({ type: currentType, content: currentUnit.trim() });
+                        currentUnit = '';
+                    }
+                }
+            }
+            // Check for headers (Markdown headers with #)
+            else if (trimmedLine.match(/^#{1,6}\s+/)) {
+                // Save current unit if exists
+                if (currentUnit.trim()) {
+                    units.push({ type: currentType, content: currentUnit.trim() });
+                    currentUnit = '';
+                }
+                // Headers are treated as single-line units
+                units.push({ type: 'header', content: line || '' });
+                currentType = 'text';
+            }
+            // Check for horizontal rules
+            else if (trimmedLine.match(/^[-*_]{3,}$/)) {
+                // Save current unit if exists
+                if (currentUnit.trim()) {
+                    units.push({ type: currentType, content: currentUnit.trim() });
+                    currentUnit = '';
+                }
+                units.push({ type: 'hr', content: line || '' });
+                currentType = 'text';
+            }
+            // Check for paragraph breaks (empty lines)
+            else if (trimmedLine === '') {
+                if (currentUnit.trim() && currentType === 'text') {
+                    // End current paragraph
+                    units.push({ type: 'paragraph', content: currentUnit.trim() });
+                    currentUnit = '';
+                } else if (currentUnit.trim()) {
+                    currentUnit += '\n' + line;
+                }
+            }
+            // Regular text line
+            else {
+                if (currentType !== 'text' && currentType !== 'paragraph') {
+                    if (currentUnit.trim()) {
+                        units.push({ type: currentType, content: currentUnit.trim() });
+                        currentUnit = '';
+                    }
+                    currentType = 'text';
+                }
+                currentUnit += (currentUnit ? '\n' : '') + line;
+            }
+        }
+
+        // Add remaining unit
+        if (currentUnit.trim()) {
+            const finalType = currentType === 'text' ? 'paragraph' : currentType;
+            units.push({ type: finalType, content: currentUnit.trim() });
+        }
+
+        return units;
+    }
+
+    /**
+     * Check if a line is part of a Markdown table
+     * @param line - Line to check
+     * @returns True if the line is a table line
+     */
+    private static isTableLine(line: string): boolean {
+        // Check for Markdown table patterns
+        // Table separator: | --- | --- |
+        if (/^\s*\|?\s*:?-+:?\s*\|/.test(line)) {
+            return true;
+        }
+        // Table content: | cell | cell |
+        if (/^\s*\|.*\|/.test(line)) {
+            return true;
+        }
+        // Table without outer pipes: cell | cell
+        if (line.includes('|') && !line.trim().startsWith('//') && !line.trim().startsWith('#')) {
+            const pipes = (line.match(/\|/g) || []).length;
+            return pipes >= 1;
+        }
+        return false;
+    }
+
+    /**
+     * Check if a line is a list item
+     * @param line - Line to check
+     * @returns True if the line is a list item
+     */
+    private static isListItem(line: string): boolean {
+        // Check for various list patterns
+        // Unordered lists: *, -, +
+        if (/^\s*[-*+]\s+/.test(line)) {
+            return true;
+        }
+        // Ordered lists: 1., 1)
+        if (/^\s*\d+[.)]\s+/.test(line)) {
+            return true;
+        }
+        // Letter lists: a., a)
+        if (/^\s*[a-zA-Z][.)]\s+/.test(line)) {
+            return true;
+        }
+        // Checkbox lists: - [ ], - [x]
+        if (/^\s*[-*+]\s*\[[x\s]\]/i.test(line)) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Get the indentation level of a list item
+     * @param line - List item line
+     * @returns Indentation level in spaces
+     */
+    private static getListIndentLevel(line: string): number {
+        const match = line ? line.match(/^(\s*)/) : null;
+        return match && match[1] ? match[1].length : 0;
+    }
+
+    /**
+     * Split a large unit into smaller chunks (for oversized paragraphs)
+     * @param content - Content to split
+     * @param maxTokens - Maximum tokens per chunk
+     * @param targetLanguage - Target language for token estimation
+     * @returns Array of split content
+     */
+    private static splitLargeUnit(content: string, maxTokens: number, targetLanguage: string | null): string[] {
+        const chunks: string[] = [];
+
+        // Try to split by sentences first
+        const sentences = content.split(/(?<=[.!?。！？])\s+/);
+        let currentChunk = '';
+        let currentTokens = 0;
+
+        for (const sentence of sentences) {
+            const sentenceTokens = this.estimateTokens(sentence, targetLanguage);
+
+            if (sentenceTokens > maxTokens) {
+                // Single sentence exceeds limit, need to split by lines or words
+                if (currentChunk) {
+                    chunks.push(currentChunk.trim());
+                    currentChunk = '';
+                    currentTokens = 0;
+                }
+
+                // Split very long sentence by lines
+                const lines = sentence.split(/\n/);
+                for (const line of lines) {
+                    const lineTokens = this.estimateTokens(line, targetLanguage);
+                    if (currentTokens + lineTokens > maxTokens && currentChunk) {
+                        chunks.push(currentChunk.trim());
+                        currentChunk = line;
+                        currentTokens = lineTokens;
+                    } else {
+                        currentChunk += (currentChunk ? '\n' : '') + line;
+                        currentTokens += lineTokens;
+                    }
+                }
+            } else if (currentTokens + sentenceTokens > maxTokens && currentChunk) {
+                chunks.push(currentChunk.trim());
+                currentChunk = sentence;
+                currentTokens = sentenceTokens;
+            } else {
+                currentChunk += (currentChunk ? ' ' : '') + sentence;
+                currentTokens += sentenceTokens;
+            }
+        }
+
+        if (currentChunk) {
+            chunks.push(currentChunk.trim());
+        }
+
         return chunks;
     }
 
@@ -306,6 +571,9 @@ class TextProcessor {
      */
     static postProcessTranslation(text: string, protectedPatterns?: ProtectedPattern[]): string {
         if (!text) return text;
+
+        // First, fix indentation: convert 4 spaces to 2 spaces for list items
+        text = this.fixListIndentation(text);
         
         // Validate translated text
         const validation = this.validateInput(text, { allowEmpty: true });
@@ -425,19 +693,29 @@ class TextProcessor {
             }
             // 通常のテキスト処理
             else {
-                // 誤ってコードブロック外に出たコードらしき行を検出
-                const looksLikeCode = REGEX_PATTERNS.CODE_LIKE_LINE.test(line || '');
-                
-                if (looksLikeCode && !line?.startsWith('#') && !line?.startsWith('//')) {
-                    // コードらしき行が連続している場合、コードブロックとして扱う
-                    if (processedLines.length > 0 && processedLines[processedLines.length - 1]?.trim() !== '') {
-                        processedLines.push('');
-                    }
-                    processedLines.push('```');
+                // 番号付きリストやインデントされたリストアイテムかチェック
+                const isListItem = /^\s*\d+[.)]\s+/.test(line || '') || // 番号付きリスト
+                                  /^\s*[-*+]\s+/.test(line || '') ||     // 箇条書きリスト
+                                  /^\s*[a-zA-Z][.)]\s+/.test(line || ''); // アルファベットリスト
+
+                // リストアイテムの場合はそのまま処理（コードブロックとして扱わない）
+                if (isListItem) {
                     processedLines.push(line || '');
-                    inCodeBlock = true;
                 } else {
-                    processedLines.push(line || '');
+                    // 誤ってコードブロック外に出たコードらしき行を検出
+                    const looksLikeCode = REGEX_PATTERNS.CODE_LIKE_LINE.test(line || '');
+
+                    if (looksLikeCode && !line?.startsWith('#') && !line?.startsWith('//')) {
+                        // コードらしき行が連続している場合、コードブロックとして扱う
+                        if (processedLines.length > 0 && processedLines[processedLines.length - 1]?.trim() !== '') {
+                            processedLines.push('');
+                        }
+                        processedLines.push('```');
+                        processedLines.push(line || '');
+                        inCodeBlock = true;
+                    } else {
+                        processedLines.push(line || '');
+                    }
                 }
             }
         }
@@ -515,21 +793,120 @@ class TextProcessor {
     }
 
     /**
+     * Fix list indentation by normalizing to 2-space indents per level
+     * @param text - Text with potential indentation issues
+     * @returns Text with corrected indentation
+     */
+    private static fixListIndentation(text: string): string {
+        if (!text) return text;
+
+        const lines = text.split('\n');
+        const fixedLines: string[] = [];
+
+        for (const line of lines) {
+            const trimmedLine = line.trim();
+
+            // Skip empty lines
+            if (!trimmedLine) {
+                fixedLines.push(line);
+                continue;
+            }
+
+            // Pattern 1: Chapter with section (e.g., "3. 1 Introduction to...")
+            // This should NOT be indented
+            const chapterMatch = line.match(/^(\s*)(\d+)\.\s+(\d+)\s+([A-Z\u4e00-\u9faf].*)$/);
+
+            // Pattern 2: Section number (e.g., "1. 1.1 Something")
+            // This should be indented based on section depth
+            const sectionMatch = line.match(/^(\s*)(\d+)\.\s+(\d+\.\d+(?:\.\d+)*)\s+(.+)$/);
+
+            // Pattern 3: Simple numbered list
+            const simpleNumberMatch = line.match(/^(\s*)(\d+)\.\s+(.+)$/);
+
+            // Pattern 4: Bullet list
+            const bulletMatch = line.match(/^(\s*)([-*+])\s+(.+)$/);
+
+            if (chapterMatch && chapterMatch[2] && chapterMatch[3] && chapterMatch[4]) {
+                // Chapter heading - no indent
+                const chapterNum = chapterMatch[2];
+                const sectionNum = chapterMatch[3];
+                const content = chapterMatch[4];
+                fixedLines.push(`${chapterNum}. ${sectionNum} ${content}`);
+            }
+            else if (sectionMatch && sectionMatch[2] && sectionMatch[3] && sectionMatch[4]) {
+                // Section with number (e.g., "1. 1.1 Content")
+                const listNumber = sectionMatch[2];
+                const sectionNumber = sectionMatch[3];
+                const content = sectionMatch[4];
+
+                // Determine indent based on section number depth
+                const sectionParts = sectionNumber.split('.');
+                let indentLevel = 1; // Default to first level
+
+                if (sectionParts.length >= 3) {
+                    indentLevel = 2; // Sub-subsection (4 spaces)
+                } else if (sectionParts.length === 2) {
+                    indentLevel = 1; // Subsection (2 spaces)
+                }
+
+                const newSpaces = '  '.repeat(indentLevel);
+                fixedLines.push(`${newSpaces}${listNumber}. ${sectionNumber} ${content}`);
+            }
+            else if (simpleNumberMatch && simpleNumberMatch[2] && simpleNumberMatch[3]) {
+                // Simple numbered list - check current indent and normalize
+                const currentSpaces = line.match(/^(\s*)/)?.[1] || '';
+                const number = simpleNumberMatch[2];
+                const content = simpleNumberMatch[3];
+
+                // Normalize indent based on current spacing
+                let indentLevel = 0;
+                if (currentSpaces.length >= 4) {
+                    indentLevel = Math.floor(currentSpaces.length / 4);
+                }
+
+                const newSpaces = '  '.repeat(indentLevel);
+                fixedLines.push(`${newSpaces}${number}. ${content}`);
+            }
+            else if (bulletMatch && bulletMatch[2] && bulletMatch[3]) {
+                // Bullet list - check current indent and normalize
+                const currentSpaces = line.match(/^(\s*)/)?.[1] || '';
+                const marker = bulletMatch[2];
+                const content = bulletMatch[3];
+
+                // Normalize indent
+                let indentLevel = 0;
+                if (currentSpaces.length >= 4) {
+                    indentLevel = Math.floor(currentSpaces.length / 4);
+                }
+
+                const newSpaces = '  '.repeat(indentLevel);
+                fixedLines.push(`${newSpaces}${marker} ${content}`);
+            }
+            else {
+                // Not a recognized pattern, keep as is
+                fixedLines.push(line);
+            }
+        }
+
+        return fixedLines.join('\n');
+    }
+
+    /**
      * Sanitize text by removing control characters
      * @param text - Text to sanitize
      * @returns Sanitized text
      */
     static sanitizeText(text: string): string {
         if (!text) return '';
-        
+
         // Remove control characters except newlines and tabs
         // eslint-disable-next-line no-control-regex
         let sanitized = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
-        
+
         // Normalize whitespace
         sanitized = sanitized.replace(/\r\n/g, '\n'); // Windows to Unix line endings
         sanitized = sanitized.replace(/\r/g, '\n');   // Mac to Unix line endings
-        
+
         return sanitized;
     }
 }

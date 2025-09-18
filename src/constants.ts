@@ -158,7 +158,7 @@ export const REGEX_PATTERNS = {
   ENGLISH_WORDS: /[a-zA-Z]+/g,
   CODE_BLOCK_START: /^```\w*/,
   CODE_BLOCK_END: /^```$/,
-  CODE_LIKE_LINE: /^\s*(if|for|while|function|def|class|import|export|const|let|var|return)\s|^[\s]{4,}[\w]/,
+  CODE_LIKE_LINE: /^\s*(if|for|while|function|def|class|import|export|const|let|var|return)\s/,
   BULLET_POINTS: /^[•·▪▫◦‣⁃➢➣→\-*]\s+/,
   NUMBERED_LIST: /^\d+[.)]\s+/,
   LETTER_LIST: /^[a-z][.)]\s+/i,

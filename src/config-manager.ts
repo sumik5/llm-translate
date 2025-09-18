@@ -53,10 +53,11 @@ class ConfigManager implements ConfigManagerInterface {
                         '3. 既存のコードブロック（```で囲まれた部分）のみをコードブロックとして維持\n' +
                         '4. ##や#などのヘッダーマークを勝手に追加しないでください\n' +
                         '5. Count, generate_series等の技術用語は翻訳しないでください\n' +
-                        '6. 関数定義（例：generate_series (...)）はそのまま残してください',
+                        '6. 関数定義（例：generate_series (...)）はそのまま残してください\n' +
+                        '7. インデント（行頭のスペース）は絶対に変更しないでください。2スペースは2スペースのまま、4スペースは4スペースのまま維持してください',
                 markdown: {
                     template: '{system}\n\n{instruction}\n\n{text}',
-                    instruction: '{targetLanguage}に翻訳してください。[SIMPLETABLE]や[INDENTNUM]で始まるプレースホルダーは絶対に変更しないでください。'
+                    instruction: '{targetLanguage}に翻訳してください。[SIMPLETABLE]や[INDENTNUM]で始まるプレースホルダーは絶対に変更しないでください。インデント（行頭のスペース）は元のまま維持してください。'
                 }
             },
             tokenEstimation: {
