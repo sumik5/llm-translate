@@ -27,6 +27,7 @@ class TranslatorApp {
     // Application state
     private isTranslating: boolean = false;
     private currentImageManager: ImageManager | null = null;
+    private currentFileName: string | null = null;
 
     constructor() {
         // Initialize core services
@@ -368,8 +369,9 @@ class TranslatorApp {
         try {
             const result = await FileProcessor.processFile(file);
 
-            // Store image manager if available
+            // Store image manager and filename if available
             this.currentImageManager = result.imageManager || null;
+            this.currentFileName = file.name;
 
             // Set the text and update UI
             this.uiManager.elements.inputText.value = result.text;
@@ -407,8 +409,9 @@ class TranslatorApp {
         try {
             const result = await FileProcessor.processFileWithParserSelection(file);
 
-            // Store image manager if available
+            // Store image manager and filename if available
             this.currentImageManager = result.imageManager || null;
+            this.currentFileName = file.name;
 
             // Set the text and update UI
             this.uiManager.elements.inputText.value = result.text;
@@ -710,6 +713,14 @@ class TranslatorApp {
     }
 
     /**
+     * Get the current uploaded file name
+     * @returns Current file name or null if no file uploaded
+     */
+    public getCurrentFileName(): string | null {
+        return this.currentFileName;
+    }
+
+    /**
      * Cleanup method for proper disposal
      */
     public dispose(): void {
@@ -718,9 +729,10 @@ class TranslatorApp {
             this.cancelTranslation();
         }
         
-        // Reset image manager
+        // Reset image manager and filename
         this.currentImageManager = null;
-        
+        this.currentFileName = null;
+
         // Reset UI state
         this.uiManager.state.reset();
     }

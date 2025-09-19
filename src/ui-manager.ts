@@ -286,11 +286,24 @@ export class UIManager {
             return;
         }
         
-        // Get the filename from file input or use default
-        const fileInput = document.getElementById('fileInput') as HTMLInputElement;
+        // Get the filename from TranslatorApp or file input or use default
         let baseFilename = 'translation';
-        if (fileInput && fileInput.files && fileInput.files[0]) {
-            baseFilename = fileInput.files[0].name.replace(/\.[^/.]+$/, '');
+
+        // First try to get from TranslatorApp's saved filename
+        const app = (window as any).translatorApp;
+        if (app && app.getCurrentFileName) {
+            const savedFileName = app.getCurrentFileName();
+            if (savedFileName) {
+                baseFilename = savedFileName.replace(/\.[^/.]+$/, '');
+            }
+        }
+
+        // Fallback to file input if no saved filename
+        if (baseFilename === 'translation') {
+            const fileInput = document.getElementById('fileInput') as HTMLInputElement;
+            if (fileInput && fileInput.files && fileInput.files[0]) {
+                baseFilename = fileInput.files[0].name.replace(/\.[^/.]+$/, '');
+            }
         }
         
         // Check if markdown format is selected
