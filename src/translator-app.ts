@@ -5,13 +5,11 @@ import UIManager from './ui-manager.js';
 import APIClient from './api-client.js';
 import MarkdownProcessor from './markdown-processor.js';
 import FileProcessor from './file-processor.js';
-// import TextProcessor from './text-processor.js'; // Unused import commented out
 import { TranslationService } from './translation-service.js';
 import { FontManager } from './font-manager.js';
 import { ERROR_MESSAGES, API_CONFIG } from './constants.js';
 import type { ImageManager } from './image-manager.js';
 
-// Types removed - were not used in implementation
 
 /**
  * Main translator application class
@@ -289,7 +287,6 @@ class TranslatorApp {
                     const markdownPreview = document.getElementById('markdownPreview') as HTMLElement;
                     this.fontManager.setOutputElements(outputTextarea, markdownPreview);
 
-                    console.log(`Font changed to: ${fontId}`);
                 } catch (error) {
                     console.error('Failed to set font:', error);
                     this.uiManager.showError('フォントの設定に失敗しました');
@@ -741,7 +738,6 @@ function initializeApp(): void {
         // Store app instance globally for debugging
         (window as any).translatorApp = app;
         
-        console.log('Translator app initialized successfully');
     } catch (error) {
         console.error('Failed to initialize translator app:', error);
         

@@ -1,9 +1,8 @@
 // ==================== API Client ====================
 import { API_CONFIG, ERROR_MESSAGES } from './constants.js';
-import type { 
+import type {
     APIClient as APIClientInterface,
     ChatCompletionRequest,
-    // APIMessage, // Unused import
     ModelInfo,
     ModelsResponse
 } from './types/index.js';

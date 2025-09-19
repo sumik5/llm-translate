@@ -148,8 +148,6 @@ export class TranslationService {
         const textLengthForEstimate = originalTextLength || text.length;
         const estimatedChunks = Math.ceil(textLengthForEstimate / (maxChunkTokens * 4));
 
-        // Debug logging
-        console.log(`Chunk calculation: originalLength=${textLengthForEstimate}, processedLength=${text.length}, maxChunkTokens=${maxChunkTokens}, estimatedChunks=${estimatedChunks}, actualChunks=${chunks.length}`);
 
         try {
             this.abortController = new AbortController();

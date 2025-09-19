@@ -1,7 +1,6 @@
 // ==================== Text Processing Utilities ====================
 import { TOKEN_ESTIMATION, REGEX_PATTERNS, UNWANTED_PREFIXES, ERROR_MESSAGES } from './constants.js';
 import { TextProtectionUtils, type ProtectedPattern } from './text-protection-utils.js';
-// import type { ChunkType } from './types/index.js'; // Unused import commented out
 
 /**
  * Interface for validation result

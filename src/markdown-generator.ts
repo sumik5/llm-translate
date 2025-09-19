@@ -88,7 +88,6 @@ export class MarkdownGenerator {
             // Extract and replace images
             const { content, images } = this.extractAndReplaceImages(markdownContent);
             
-            console.log(`Found ${images.length} images to extract`);
             
             if (images.length > 0) {
                 // Create ZIP file with markdown and images
@@ -117,12 +116,6 @@ export class MarkdownGenerator {
                     document.body.removeChild(a);
                     URL.revokeObjectURL(url);
                     
-                    // Show notification
-                    const message = images.length === 1 
-                        ? 'ZIPファイルをダウンロードしました。\nMarkdownファイルと1個の画像が含まれています。'
-                        : `ZIPファイルをダウンロードしました。\nMarkdownファイルと${images.length}個の画像が含まれています。`;
-                    
-                    console.log(message);
                 } catch (error) {
                     console.error('Error creating ZIP file:', error);
                     // Fall back to simple markdown download
@@ -131,7 +124,6 @@ export class MarkdownGenerator {
                 }
             } else {
                 // No images, just download markdown
-                console.log('No images found in markdown content');
                 this.downloadAsMarkdown(markdownContent, filename);
             }
         } else {

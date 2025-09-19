@@ -68,7 +68,6 @@ export class FontManager {
 
             link.onload = () => {
                 this.loadedFonts.add(fontId);
-                console.log(`Font ${fontId} loaded successfully`);
                 resolve();
             };
 
@@ -106,7 +105,6 @@ export class FontManager {
             inputTextarea.style.fontFamily = fontFamily;
         }
 
-        console.log(`Font applied: ${this.currentFont} (${fontFamily})`);
     }
 
     /**
