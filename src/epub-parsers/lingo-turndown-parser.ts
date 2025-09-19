@@ -313,14 +313,19 @@ export default class LingoTurndownParser extends BaseEPUBParser {
             },
             replacement: (_content: string, node: Element) => {
                 // CODE要素内のテキストを直接取得（HTMLタグを除去）
-                const textContent = node.textContent || '';
+                let textContent = node.textContent || '';
 
                 // 言語を検出（class属性から）
                 const className = node.getAttribute('class') || '';
                 const langMatch = className.match(/language-(\w+)/);
                 const lang = langMatch ? langMatch[1] : '';
 
-                return '\n\n```' + lang + '\n' + textContent + '\n```\n\n';
+                // Ensure textContent ends with a newline before closing ```
+                if (textContent && !textContent.endsWith('\n')) {
+                    textContent += '\n';
+                }
+
+                return '\n\n```' + lang + '\n' + textContent + '```\n\n';
             }
         });
         // 画像の処理ルール
@@ -367,12 +372,18 @@ export default class LingoTurndownParser extends BaseEPUBParser {
                 const langMatch = className.match(/language-(\w+)/);
                 const lang = langMatch ? langMatch[1] : '';
 
+                // Ensure textContent ends with a newline before closing ```
+                let processedContent = textContent;
+                if (processedContent && !processedContent.endsWith('\n')) {
+                    processedContent += '\n';
+                }
+
                 if (!hasJapanese && !hasLongSentence) {
                     // コードブロックとして処理
-                    return '\n\n```' + lang + '\n' + textContent + '\n```\n\n';
+                    return '\n\n```' + lang + '\n' + processedContent + '```\n\n';
                 } else if (isHtmlContentCode(textContent)) {
                     // 日本語を含んでいてもコードスコアが高い場合
-                    return '\n\n```' + lang + '\n' + textContent + '\n```\n\n';
+                    return '\n\n```' + lang + '\n' + processedContent + '```\n\n';
                 } else {
                     // 通常のテキストとして扱う
                     return '\n\n' + textContent + '\n\n';

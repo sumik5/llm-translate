@@ -39,7 +39,51 @@ class EPUBProcessor extends BaseFileProcessor {
      * @param content - 正規化対象のマークダウン
      */
     normalizeMarkdown(content: string): string {
-        return MarkdownFormatter.ensureProperSpacing(content);
+        // Fix misplaced language identifiers after closing code blocks
+        let normalized = this.fixMisplacedCodeBlockLanguages(content);
+        return MarkdownFormatter.ensureProperSpacing(normalized);
+    }
+
+    /**
+     * Fix language identifiers that appear after closing ``` tags
+     * @param content - Markdown content with possible misplaced language identifiers
+     * @returns Fixed markdown content
+     */
+    private fixMisplacedCodeBlockLanguages(content: string): string {
+        // Pattern to match ``` followed by a language identifier on the same or next line
+        // This happens when EPUB parsers incorrectly place language info
+        const lines = content.split('\n');
+        const fixed: string[] = [];
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i] || '';
+            const nextLine = lines[i + 1];
+
+            // Check if current line ends with ``` followed by language
+            const closingWithLang = line.match(/```(\w+)$/);
+            if (closingWithLang) {
+                // Remove the language identifier from closing tag
+                fixed.push(line.replace(/```\w+$/, '```'));
+                continue;
+            }
+
+            // Check if line is just ``` and next line is a single word (likely language)
+            if (line.trim() === '```' && nextLine && /^[a-z]+$/i.test(nextLine.trim())) {
+                // This might be a closing tag followed by misplaced language
+                // Check if the line after is not code-like
+                const lineAfterNext = lines[i + 2];
+                if (!lineAfterNext || lineAfterNext.trim() === '' || /^[#*\-\s]/.test(lineAfterNext)) {
+                    // Skip the language line
+                    fixed.push(line);
+                    i++; // Skip next line
+                    continue;
+                }
+            }
+
+            fixed.push(line);
+        }
+
+        return fixed.join('\n');
     }
 
     /**
@@ -68,10 +112,13 @@ class EPUBProcessor extends BaseFileProcessor {
             
             // ImageManagerを取得
             this.imageManager = parser.getImageManager();
-            
+
+            // Fix and normalize the content
+            const normalizedContent = this.normalizeMarkdown(result.content);
+
             // ProcessingResult形式に変換
             return {
-                content: result.content,
+                content: normalizedContent,
                 metadata: {
                     originalName: fileInfo?.name || 'unknown.epub',
                     fileType: 'epub',

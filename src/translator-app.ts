@@ -367,10 +367,10 @@ class TranslatorApp {
         
         try {
             const result = await FileProcessor.processFile(file);
-            
+
             // Store image manager if available
             this.currentImageManager = result.imageManager || null;
-            
+
             // Set the text and update UI
             this.uiManager.elements.inputText.value = result.text;
             this.uiManager.updateInputCharCount();
@@ -406,10 +406,10 @@ class TranslatorApp {
 
         try {
             const result = await FileProcessor.processFileWithParserSelection(file);
-            
+
             // Store image manager if available
             this.currentImageManager = result.imageManager || null;
-            
+
             // Set the text and update UI
             this.uiManager.elements.inputText.value = result.text;
             this.uiManager.updateInputCharCount();
@@ -427,7 +427,7 @@ class TranslatorApp {
     private async handleTranslation(): Promise<void> {
         const { elements } = this.uiManager;
         const text = elements.inputText.value.trim();
-        
+
         if (!text) {
             this.uiManager.showError(ERROR_MESSAGES.NO_TEXT);
             return;

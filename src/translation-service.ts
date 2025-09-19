@@ -57,16 +57,16 @@ export class TranslationService {
         if (!validation.valid) {
             throw new Error(validation.errors.join('; '));
         }
-        
+
         // Pre-process text to protect technical patterns
         const { protectedText, patterns } = TextProcessor.preProcessForTranslation(text);
-        
+
         // Re-estimate tokens with target language for more accurate chunking (use protected text)
         const estimatedTokens = TextProcessor.estimateTokens(protectedText, targetLanguage);
 
         // Sanitize text
         let sanitizedText = TextProcessor.sanitizeText(protectedText);
-        
+
         if (imageManager) {
             sanitizedText = sanitizedText.replace(/!\[[^\]]*\]\(data:image\/[^)]+\)/g, (_match) => {
                 return '[[IMAGE_REMOVED]]';
@@ -75,7 +75,7 @@ export class TranslationService {
 
         const config = this.configManager.getConfig();
         const maxChunkTokens = userChunkSize || config.api.chunkMaxTokens || API_CONFIG.chunkMaxTokens;
-        
+
         if (estimatedTokens <= maxChunkTokens) {
             return await this.translateSingle(
                 sanitizedText, 
@@ -100,15 +100,15 @@ export class TranslationService {
     }
 
     private async translateSingle(
-        text: string, 
-        targetLanguage: string, 
-        apiUrl: string | null, 
+        text: string,
+        targetLanguage: string,
+        apiUrl: string | null,
         modelName: string | null,
         protectedPatterns: ProtectedPattern[]
     ): Promise<string> {
         try {
             this.abortController = new AbortController();
-            
+
             const translatedText = await this.apiClient.translate(
                 text,
                 targetLanguage,
@@ -164,23 +164,29 @@ export class TranslationService {
                     onProgress(progress, `チャンク ${i + 1}/${estimatedChunks}（目安） を翻訳中...`);
                 }
 
-                const translatedChunk = await this.apiClient.translate(
-                    chunk || '',
-                    targetLanguage,
-                    apiUrl || '',
-                    modelName || '',
-                    this.abortController.signal
-                );
+                try {
+                    const translatedChunk = await this.apiClient.translate(
+                        chunk || '',
+                        targetLanguage,
+                        apiUrl || '',
+                        modelName || '',
+                        this.abortController.signal
+                    );
 
-                const processedChunk = TextProcessor.postProcessTranslation(translatedChunk, protectedPatterns);
-                translatedChunks.push(processedChunk);
+                    const processedChunk = TextProcessor.postProcessTranslation(translatedChunk, protectedPatterns);
+                    translatedChunks.push(processedChunk);
 
-                if (onChunkComplete) {
-                    onChunkComplete(i + 1, estimatedChunks, processedChunk);
+                    if (onChunkComplete) {
+                        onChunkComplete(i + 1, estimatedChunks, processedChunk);
+                    }
+                } catch (error) {
+                    // Re-throw the error to maintain original behavior
+                    throw error;
                 }
             }
 
-            return '';
+            const result = translatedChunks.join('\n\n');
+            return result;
         } catch (error) {
             if (error instanceof Error && (error.name === 'AbortError' || error.message === ERROR_MESSAGES.TRANSLATION_ABORTED)) {
                 throw new Error(ERROR_MESSAGES.TRANSLATION_ABORTED);

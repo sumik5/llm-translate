@@ -2,10 +2,10 @@
 // file://プロトコルでも読み込み可能にするため
 window.PROMPT_CONFIG = {
   "translation": {
-    "system": "Translate to {targetLanguage}. Keep markdown format. Translate only comments and strings in code blocks.",
+    "system": "Translate to {targetLanguage}. MAINTAIN EXACT MARKDOWN FORMAT.\n\nCRITICAL RULES FOR CODE BLOCKS:\n1. NEVER modify content inside ``` blocks\n2. NEVER add language identifiers (json, python, etc.) unless in original\n3. If original has ```\\n then output must have ```\\n (nothing after ```)\n4. Keep commands, code, and paths EXACTLY as they are\n\nCRITICAL RULES FOR TEXT:\n1. If original text has NO ```, translated text must have NO ```\n2. Normal text paragraphs must remain as normal text (never wrap in ```)\n3. Lists (- items) must remain as lists with same indentation\n\nEXAMPLE:\nOriginal: ```\\nadk run --help\\n```\nCORRECT: ```\\nadk run --help\\n```\nWRONG: ```json\\nadk run --help\\n```\n\nPreserve ALL formatting EXACTLY. Do not \"improve\" or change anything.",
     "markdown": {
       "instruction": "",
-      "template": "{system}\n\n{text}"
+      "template": "{system}\n\nOriginal text:\n{text}"
     },
     "plain": {
       "instruction": "プレーンテキストとして翻訳してください。",

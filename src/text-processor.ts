@@ -164,7 +164,9 @@ class TextProcessor {
 
         // コードブロックを最優先で保護（```で囲まれたブロック）
         let codeBlockId = 1;
-        const codeBlockPattern = /```[\w]*\n[\s\S]*?\n```/g;
+        // 改良版: 言語指定も含めて正確にマッチ（最短一致で取得）
+        // 言語指定は```の直後、改行は任意
+        const codeBlockPattern = /```([\w]*)[^\n\S]*\n?([\s\S]*?)```/g;
         protectedText = protectedText.replace(codeBlockPattern, (match) => {
             const placeholder = `[CODEBLOCK${codeBlockId++}]`;
             patterns.push({
@@ -622,7 +624,10 @@ class TextProcessor {
     static postProcessTranslation(text: string, protectedPatterns?: ProtectedPattern[]): string {
         if (!text) return text;
 
-        // First, fix indentation: convert 4 spaces to 2 spaces for list items
+        // First, detect and fix incorrectly added code blocks
+        text = this.fixIncorrectCodeBlocks(text);
+
+        // Fix indentation: convert 4 spaces to 2 spaces for list items
         text = this.fixListIndentation(text);
         
         // Validate translated text
@@ -808,13 +813,13 @@ class TextProcessor {
         
         // 保護されたパターンがある場合は復元
         if (protectedPatterns && protectedPatterns.length > 0) {
+            // プレースホルダーが翻訳されてしまった場合も考慮して復元
+            result = this.restoreTranslatedPlaceholders(result, protectedPatterns);
+
             const restoreResult = TextProtectionUtils.restorePatterns(result, protectedPatterns);
             result = restoreResult.restoredText;
-            
-            // デバッグ用：復元された数を確認（実際のプロダクトでは削除可能）
-            if (restoreResult.restoredCount > 0) {
-                console.debug(`Restored ${restoreResult.restoredCount} protected patterns`);
-            }
+
+            // Restoration complete
         }
         
         return result;
@@ -946,6 +951,224 @@ class TextProcessor {
      * @param text - Text to sanitize
      * @returns Sanitized text
      */
+    /**
+     * Fix incorrectly added code blocks in translated text
+     * @param text - Translated text that may have incorrect code blocks
+     * @returns Text with incorrect code blocks removed
+     */
+    static fixIncorrectCodeBlocks(text: string): string {
+        if (!text) return text;
+
+        // First, fix incorrectly placed language identifiers
+        text = this.fixMisplacedLanguageIdentifiers(text);
+
+        // Pattern to detect code blocks that contain what looks like regular prose
+        // (Japanese or English sentences that are not actual code)
+        const lines = text.split('\n');
+        const result: string[] = [];
+        let inCodeBlock = false;
+        let codeBlockContent: string[] = [];
+        let codeBlockStart = '';
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i] || '';
+            const trimmedLine = line.trim();
+
+            // Check for code block markers
+            if (trimmedLine.startsWith('```')) {
+                if (!inCodeBlock) {
+                    // Starting a code block
+                    inCodeBlock = true;
+                    codeBlockStart = line;
+                    codeBlockContent = [];
+                } else {
+                    // Ending a code block - check if it's legitimate
+                    inCodeBlock = false;
+
+                    // Check if the content looks like regular prose
+                    const content = codeBlockContent.join('\n');
+                    const isLikelyProse = this.isLikelyProseNotCode(content);
+
+                    if (isLikelyProse) {
+                        // This is prose incorrectly wrapped in code blocks
+                        // Add the content without code block markers
+                        result.push(...codeBlockContent);
+                    } else {
+                        // This is legitimate code, keep the code blocks
+                        result.push(codeBlockStart);
+                        result.push(...codeBlockContent);
+                        result.push(line);
+                    }
+                    codeBlockContent = [];
+                }
+            } else if (inCodeBlock) {
+                codeBlockContent.push(line);
+            } else {
+                result.push(line);
+            }
+        }
+
+        // Handle unclosed code block
+        if (inCodeBlock && codeBlockContent.length > 0) {
+            const content = codeBlockContent.join('\n');
+            if (this.isLikelyProseNotCode(content)) {
+                result.push(...codeBlockContent);
+            } else {
+                result.push(codeBlockStart);
+                result.push(...codeBlockContent);
+            }
+        }
+
+        return result.join('\n');
+    }
+
+    /**
+     * Determine if content is likely prose rather than code
+     * @param content - Content to check
+     * @returns True if likely prose, false if likely code
+     */
+    private static isLikelyProseNotCode(content: string): boolean {
+        if (!content.trim()) return false;
+
+        // Indicators that suggest prose (not code)
+        const proseIndicators = [
+            // Japanese sentence patterns
+            /[。、！？]/,
+            /です[。、]/,
+            /ます[。、]/,
+            /ください/,
+            /必要があります/,
+            /ことができます/,
+            /として/,
+            /について/,
+
+            // Common prose starts in Japanese
+            /^(この|それ|あれ|これら|以下|上記|次の)/,
+
+            // Full sentences with proper punctuation
+            /^[A-Z][^.]*\.$/, // English sentence
+            /^[^.]*[。！？]$/, // Japanese sentence
+
+            // Markdown list items incorrectly in code blocks
+            /^\s*[-*+]\s+[^\n]+/, // Bullet list
+            /^\s*\d+\.\s+[^\n]+/, // Numbered list
+        ];
+
+        // Indicators that suggest actual code
+        const codeIndicators = [
+            /^\s*(import|export|function|class|const|let|var|if|for|while|return)\s/,
+            /[;{}\[\]()]/,
+            /^\s*#!\//,  // Shebang
+            /^\s*\/\//,   // Comment
+            /^\s*#\s/,    // Python/Shell comment
+            /\$\{[^}]+\}/, // Template literal
+            /::/,         // Scope operator
+            /->|=>|<=|>=|==|!=|===|!==/, // Operators
+        ];
+
+        // Count indicators
+        let proseScore = 0;
+        let codeScore = 0;
+
+        for (const pattern of proseIndicators) {
+            if (pattern.test(content)) proseScore++;
+        }
+
+        for (const pattern of codeIndicators) {
+            if (pattern.test(content)) codeScore++;
+        }
+
+        // If content is primarily prose indicators, it's likely prose
+        return proseScore > codeScore && proseScore > 0;
+    }
+
+    /**
+     * Restore placeholders that may have been translated
+     * @param text - Text with possibly translated placeholders
+     * @param patterns - Original protected patterns
+     * @returns Text with placeholders restored to original format
+     */
+    /**
+     * Fix language identifiers that appear on the wrong line
+     * @param text - Text with possible misplaced language identifiers
+     * @returns Text with corrected code blocks
+     */
+    private static fixMisplacedLanguageIdentifiers(text: string): string {
+        const lines = text.split('\n');
+        const result: string[] = [];
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i] || '';
+            const trimmedLine = line.trim();
+            const nextLine = lines[i + 1];
+            const nextTrimmed = nextLine?.trim() || '';
+
+            // Check if current line is ``` and next line looks like a language identifier
+            if (trimmedLine === '```' && nextLine !== undefined) {
+                // Common language identifiers that shouldn't appear as separate lines
+                const langPattern = /^(javascript|typescript|python|java|json|bash|shell|sql|html|css|yaml|xml|markdown|md|jsx|tsx|c|cpp|go|rust|ruby|php|swift|kotlin)$/i;
+
+                if (langPattern.test(nextTrimmed) && !nextTrimmed.includes(' ')) {
+                    // Skip the language identifier line
+                    result.push(line);
+                    i++; // Skip next line
+                    continue;
+                }
+            }
+
+            // Check if line starts with ```json or similar (when it should be just ```)
+            // This happens when LLM adds language identifier to plain code blocks
+            if (line.match(/^```(json|javascript|python|bash|shell)$/i)) {
+                // Check if the original likely didn't have this identifier
+                // by looking at the content
+                const blockContent = [];
+                let j = i + 1;
+                while (j < lines.length && !lines[j]?.trim().startsWith('```')) {
+                    blockContent.push(lines[j]);
+                    j++;
+                }
+
+                const content = blockContent.join('\n');
+                // If content looks like shell commands, remove incorrect language identifier
+                if (content.includes('--help') || content.match(/^[a-z]+\s+[a-z]+/)) {
+                    result.push('```');
+                    continue;
+                }
+            }
+
+            result.push(line);
+        }
+
+        return result.join('\n');
+    }
+
+    private static restoreTranslatedPlaceholders(text: string, _patterns: ProtectedPattern[]): string {
+        // Map of translated placeholders to original
+        const translatedPlaceholders: { [key: string]: string } = {
+            // Japanese translations
+            '[コードブロック': '[CODEBLOCK',
+            '[コード': '[CODEBLOCK',
+            '[シンプルテーブル': '[SIMPLETABLE',
+            '[インデント番号': '[INDENTNUM',
+            // Chinese translations
+            '[代码块': '[CODEBLOCK',
+            '[简单表格': '[SIMPLETABLE',
+            // Korean translations
+            '[코드블록': '[CODEBLOCK',
+            '[코드': '[CODEBLOCK',
+        };
+
+        let restoredText = text;
+
+        // Replace translated placeholders back to English
+        for (const [translated, original] of Object.entries(translatedPlaceholders)) {
+            const regex = new RegExp(`\\${translated}(\\d+)\\]`, 'g');
+            restoredText = restoredText.replace(regex, `${original}$1]`);
+        }
+
+        return restoredText;
+    }
+
     static sanitizeText(text: string): string {
         if (!text) return '';
 
