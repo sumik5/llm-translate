@@ -302,22 +302,29 @@ class TextProcessor {
 
             // Check for code block
             if (REGEX_PATTERNS.CODE_BLOCK_START.test(trimmedLine)) {
-                // Save current unit if exists
-                if (currentUnit.trim()) {
-                    units.push({ type: currentType, content: currentUnit.trim() });
-                    currentUnit = '';
+                // Handle code block inside list
+                if (inList) {
+                    currentUnit += '\n' + line;
+                } else {
+                    // Save current unit if exists
+                    if (currentUnit.trim()) {
+                        units.push({ type: currentType, content: currentUnit.trim() });
+                        currentUnit = '';
+                    }
+                    inCodeBlock = true;
+                    currentType = 'code_block';
+                    currentUnit = line || '';
                 }
-                inCodeBlock = true;
-                currentType = 'code_block';
-                currentUnit = line || '';
             }
             else if (inCodeBlock) {
                 currentUnit += '\n' + line;
                 if (REGEX_PATTERNS.CODE_BLOCK_END.test(trimmedLine)) {
-                    units.push({ type: currentType, content: currentUnit.trim() });
-                    currentUnit = '';
-                    inCodeBlock = false;
-                    currentType = 'text';
+                    if (!inList) {
+                        units.push({ type: currentType, content: currentUnit.trim() });
+                        currentUnit = '';
+                        inCodeBlock = false;
+                        currentType = 'text';
+                    }
                 }
             }
             // Check for table (Markdown tables with |)
@@ -357,13 +364,32 @@ class TextProcessor {
 
                 currentUnit += (currentUnit ? '\n' : '') + line;
 
-                // Check if next line continues the list
+                // Check if next line continues the list or is indented content (including code blocks)
                 const nextIsListItem = nextLine ? this.isListItem(nextLine) : false;
                 const nextIndent = nextLine ? this.getListIndentLevel(nextLine) : 0;
                 const nextIsIndentedText = nextLine && !nextTrimmedLine && lines[i + 2] &&
                                            (lines[i + 2]?.startsWith('  ') || false);
+                const nextIsCodeBlock = nextTrimmedLine && REGEX_PATTERNS.CODE_BLOCK_START.test(nextTrimmedLine);
 
-                if (!nextIsListItem && !nextIsIndentedText && nextTrimmedLine !== '') {
+                // Look ahead for code block closure if next line starts a code block
+                let codeBlockEndsInList = false;
+                if (nextIsCodeBlock) {
+                    let j = i + 2;
+                    while (j < lines.length) {
+                        if (REGEX_PATTERNS.CODE_BLOCK_END.test(lines[j]?.trim() || '')) {
+                            // Check if there's more list content after the code block
+                            if (j + 1 < lines.length &&
+                                (this.isListItem(lines[j + 1] || '') ||
+                                 lines[j + 1]?.startsWith('  '))) {
+                                codeBlockEndsInList = true;
+                            }
+                            break;
+                        }
+                        j++;
+                    }
+                }
+
+                if (!nextIsListItem && !nextIsIndentedText && nextTrimmedLine !== '' && !nextIsCodeBlock && !codeBlockEndsInList) {
                     // End of list
                     units.push({ type: currentType, content: currentUnit.trim() });
                     currentUnit = '';
@@ -410,14 +436,39 @@ class TextProcessor {
             }
             // Regular text line
             else {
-                if (currentType !== 'text' && currentType !== 'paragraph') {
-                    if (currentUnit.trim()) {
+                // Handle indented content in lists (including code inside lists)
+                if (inList && line.startsWith('  ')) {
+                    currentUnit += '\n' + line;
+
+                    // Check if this ends the list
+                    const nextIsListItem = nextLine ? this.isListItem(nextLine) : false;
+                    const nextIsIndented = nextLine ? nextLine.startsWith('  ') : false;
+
+                    if (!nextIsListItem && !nextIsIndented && nextTrimmedLine !== '') {
+                        // End of list
                         units.push({ type: currentType, content: currentUnit.trim() });
                         currentUnit = '';
+                        inList = false;
+                        currentType = 'text';
                     }
-                    currentType = 'text';
+                } else {
+                    // End list if we hit non-indented text
+                    if (inList && !line.startsWith('  ') && trimmedLine !== '') {
+                        units.push({ type: currentType, content: currentUnit.trim() });
+                        currentUnit = '';
+                        inList = false;
+                        currentType = 'text';
+                    }
+
+                    if (currentType !== 'text' && currentType !== 'paragraph') {
+                        if (currentUnit.trim()) {
+                            units.push({ type: currentType, content: currentUnit.trim() });
+                            currentUnit = '';
+                        }
+                        currentType = 'text';
+                    }
+                    currentUnit += (currentUnit ? '\n' : '') + line;
                 }
-                currentUnit += (currentUnit ? '\n' : '') + line;
             }
         }
 
