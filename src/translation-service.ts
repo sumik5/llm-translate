@@ -86,14 +86,15 @@ export class TranslationService {
             );
         } else {
             return await this.translateChunked(
-                sanitizedText, 
-                targetLanguage, 
-                apiUrl, 
+                sanitizedText,
+                targetLanguage,
+                apiUrl,
                 modelName,
                 maxChunkTokens,
                 onProgress,
                 onChunkComplete,
-                patterns
+                patterns,
+                text.length  // 元のテキストの長さを渡す
             );
         }
     }
@@ -128,18 +129,27 @@ export class TranslationService {
     }
 
     private async translateChunked(
-        text: string, 
-        targetLanguage: string, 
-        apiUrl: string | null, 
-        modelName: string | null, 
+        text: string,
+        targetLanguage: string,
+        apiUrl: string | null,
+        modelName: string | null,
         maxChunkTokens: number,
         onProgress: ProgressCallback | null,
         onChunkComplete: ChunkCompleteCallback | null,
-        protectedPatterns: ProtectedPattern[]
+        protectedPatterns: ProtectedPattern[],
+        originalTextLength?: number  // 元のテキストの長さ（オプション）
     ): Promise<string> {
         const chunks = TextProcessor.splitTextIntoChunks(text, maxChunkTokens, targetLanguage);
         const translatedChunks: string[] = [];
-        const totalChunks = chunks.length;
+
+        // 目安のチャンク数を計算（文字数 ÷ (チャンクサイズ × 4)）
+        // 1トークン≈4文字として計算
+        // 元のテキストの長さを使用（前処理前の長さ）
+        const textLengthForEstimate = originalTextLength || text.length;
+        const estimatedChunks = Math.ceil(textLengthForEstimate / (maxChunkTokens * 4));
+
+        // Debug logging
+        console.log(`Chunk calculation: originalLength=${textLengthForEstimate}, processedLength=${text.length}, maxChunkTokens=${maxChunkTokens}, estimatedChunks=${estimatedChunks}, actualChunks=${chunks.length}`);
 
         try {
             this.abortController = new AbortController();
@@ -150,10 +160,10 @@ export class TranslationService {
                 }
 
                 const chunk = chunks[i];
-                const progress = ((i + 1) / totalChunks) * 100;
-                
+                const progress = ((i + 1) / chunks.length) * 100;
+
                 if (onProgress) {
-                    onProgress(progress, `チャンク ${i + 1}/${totalChunks}（目安） を翻訳中...`);
+                    onProgress(progress, `チャンク ${i + 1}/${estimatedChunks}（目安） を翻訳中...`);
                 }
 
                 const translatedChunk = await this.apiClient.translate(
@@ -168,7 +178,7 @@ export class TranslationService {
                 translatedChunks.push(processedChunk);
 
                 if (onChunkComplete) {
-                    onChunkComplete(i + 1, totalChunks, processedChunk);
+                    onChunkComplete(i + 1, estimatedChunks, processedChunk);
                 }
             }
 
