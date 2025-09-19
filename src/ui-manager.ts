@@ -4,6 +4,7 @@ import { StateManager } from './state-manager.js';
 import { HTMLGenerator } from './html-generator.js';
 import { MarkdownGenerator } from './markdown-generator.js';
 import { MarkdownFormatter } from './markdown-formatter.js';
+import { JAPANESE_FONTS, GOOGLE_FONTS_URLS } from './constants.js';
 import type MarkdownProcessor from './markdown-processor.js';
 import type { ImageManager } from './image-manager.js';
 
@@ -318,29 +319,38 @@ export class UIManager {
             let htmlContent: string;
             let filename: string;
             
+            // Get current font selection
+            const fontSelect = document.getElementById('fontSelect') as HTMLSelectElement;
+            const selectedFontId = fontSelect?.value || 'default';
+            const fontInfo = JAPANESE_FONTS.find(f => f.value === selectedFontId);
+            const fontFamily = fontInfo?.fontFamily || '';
+            const fontUrl = selectedFontId !== 'default' ? GOOGLE_FONTS_URLS[selectedFontId] || '' : '';
+
             if (exportType === 'translation-only') {
                 // Export translation only
                 htmlContent = this.htmlGenerator.generateSingleColumnHtml(
-                    translatedHtml, 
+                    translatedHtml,
                     {
                         title: baseFilename,
-                        styles: this.htmlGenerator.getTranslationOnlyStyles()
+                        fontFamily: fontFamily,
+                        fontUrl: fontUrl
                     }
                 );
                 filename = this.htmlGenerator.generateFilename(baseFilename + '_translated');
             } else {
                 // Export side-by-side
-                const originalHtml = originalText ? 
+                const originalHtml = originalText ?
                     MarkdownFormatter.toHtml(originalText) : null;
-                
+
                 htmlContent = this.htmlGenerator.generateTranslationHtml(
-                    originalHtml, 
+                    originalHtml,
                     translatedHtml,
                     {
                         title: baseFilename,
                         originalLabel: '原文',
                         translatedLabel: '翻訳',
-                        styles: this.htmlGenerator.getWideLayoutStyles()
+                        fontFamily: fontFamily,
+                        fontUrl: fontUrl
                     }
                 );
                 filename = this.htmlGenerator.generateFilename(baseFilename + '_comparison');

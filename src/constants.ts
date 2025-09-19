@@ -55,6 +55,29 @@ export const SUPPORTED_LANGUAGES: readonly LanguageOption[] = [
 ] as const;
 
 /**
+ * Google Fontsの日本語フォント一覧
+ */
+export const JAPANESE_FONTS = [
+  { value: 'default', label: 'デフォルト', fontFamily: 'sans-serif' },
+  { value: 'noto-sans-jp', label: 'Noto Sans JP', fontFamily: '"Noto Sans JP", sans-serif' },
+  { value: 'noto-serif-jp', label: 'Noto Serif JP', fontFamily: '"Noto Serif JP", serif' },
+  { value: 'sawarabi-mincho', label: 'さわらび明朝', fontFamily: '"Sawarabi Mincho", serif' },
+  { value: 'sawarabi-gothic', label: 'さわらびゴシック', fontFamily: '"Sawarabi Gothic", sans-serif' },
+  { value: 'm-plus-1p', label: 'M PLUS 1p', fontFamily: '"M PLUS 1p", sans-serif' }
+] as const;
+
+/**
+ * Google Fonts URLs
+ */
+export const GOOGLE_FONTS_URLS: Record<string, string> = {
+  'noto-sans-jp': 'https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap',
+  'noto-serif-jp': 'https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700&display=swap',
+  'sawarabi-mincho': 'https://fonts.googleapis.com/css2?family=Sawarabi+Mincho&display=swap',
+  'sawarabi-gothic': 'https://fonts.googleapis.com/css2?family=Sawarabi+Gothic&display=swap',
+  'm-plus-1p': 'https://fonts.googleapis.com/css2?family=M+PLUS+1p:wght@400;700&display=swap'
+};
+
+/**
  * 翻訳圧縮率の設定
  */
 export const TRANSLATION_COMPRESSION_RATIO: TranslationCompressionRatio = {

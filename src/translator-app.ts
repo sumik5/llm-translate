@@ -7,6 +7,7 @@ import MarkdownProcessor from './markdown-processor.js';
 import FileProcessor from './file-processor.js';
 // import TextProcessor from './text-processor.js'; // Unused import commented out
 import { TranslationService } from './translation-service.js';
+import { FontManager } from './font-manager.js';
 import { ERROR_MESSAGES, API_CONFIG } from './constants.js';
 import type { ImageManager } from './image-manager.js';
 
@@ -23,6 +24,7 @@ class TranslatorApp {
     private readonly apiClient: any;
     private readonly markdownProcessor: any;
     private readonly translationService: any;
+    private readonly fontManager: FontManager;
 
     // Application state
     private isTranslating: boolean = false;
@@ -35,7 +37,8 @@ class TranslatorApp {
         this.apiClient = new APIClient(this.configManager);
         this.markdownProcessor = new MarkdownProcessor();
         this.translationService = new TranslationService(this.apiClient, this.configManager);
-        
+        this.fontManager = new FontManager();
+
         // Initialize application
         this.initialize().catch(error => {
             console.error('Application initialization failed:', error);
@@ -52,11 +55,18 @@ class TranslatorApp {
             // Load configuration
             this.configManager.loadPromptConfig();
             this.loadPromptConfig();
-            
+
+            // Setup font manager
+            const outputTextarea = document.getElementById('outputText') as HTMLTextAreaElement;
+            const markdownPreview = document.getElementById('markdownPreview') as HTMLElement;
+            this.fontManager.setOutputElements(outputTextarea, markdownPreview);
+            await this.fontManager.loadFromStorage();
+
             // Setup UI and event handlers
             this.setupEventListeners();
+            this.setupFontEventListeners();
             this.setupPageLeaveProtection();
-            
+
             // Initialize model list
             await this.refreshModels();
             
@@ -254,6 +264,38 @@ class TranslatorApp {
         
         // Tab switching
         this.setupTabSwitching();
+    }
+
+    /**
+     * Setup font event listeners
+     */
+    private setupFontEventListeners(): void {
+        const fontSelect = document.getElementById('fontSelect') as HTMLSelectElement;
+        if (fontSelect) {
+            // Set initial value from font manager
+            fontSelect.value = this.fontManager.getCurrentFont();
+
+            // Add change event listener
+            fontSelect.addEventListener('change', async (e) => {
+                const target = e.target as HTMLSelectElement;
+                const fontId = target.value;
+
+                try {
+                    await this.fontManager.setFont(fontId);
+                    this.fontManager.saveToStorage();
+
+                    // 再度出力要素を設定して確実に適用
+                    const outputTextarea = document.getElementById('outputText') as HTMLTextAreaElement;
+                    const markdownPreview = document.getElementById('markdownPreview') as HTMLElement;
+                    this.fontManager.setOutputElements(outputTextarea, markdownPreview);
+
+                    console.log(`Font changed to: ${fontId}`);
+                } catch (error) {
+                    console.error('Failed to set font:', error);
+                    this.uiManager.showError('フォントの設定に失敗しました');
+                }
+            });
+        }
     }
 
     /**

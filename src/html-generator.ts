@@ -7,24 +7,28 @@ export interface GenerationOptions {
     originalLabel?: string;
     translatedLabel?: string;
     styles?: string;
+    fontFamily?: string;
+    fontUrl?: string;
 }
 
 export interface SingleColumnOptions {
     title?: string;
     styles?: string;
+    fontFamily?: string;
+    fontUrl?: string;
 }
 
 export class HTMLGenerator {
-    private readonly defaultStyles: string;
-
     constructor() {
-        this.defaultStyles = this.getDefaultStyles();
     }
 
-    private getDefaultStyles(): string {
+    private getDefaultStyles(fontFamily?: string): string {
+        const defaultFont = '-apple-system, BlinkMacSystemFont, \'Segoe UI\', \'Helvetica Neue\', Arial, sans-serif';
+        const selectedFont = fontFamily || defaultFont;
+
         return `
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+            font-family: ${selectedFont};
             line-height: 1.6;
             margin: 0;
             padding: 1rem;
@@ -272,10 +276,13 @@ export class HTMLGenerator {
         }`;
     }
 
-    getTranslationOnlyStyles(): string {
+    getTranslationOnlyStyles(fontFamily?: string): string {
+        const defaultFont = '-apple-system, BlinkMacSystemFont, \'Segoe UI\', \'Helvetica Neue\', Arial, sans-serif';
+        const selectedFont = fontFamily || defaultFont;
+
         return `
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+            font-family: ${selectedFont};
             line-height: 1.8;
             margin: 0;
             padding: 2rem;
@@ -403,8 +410,11 @@ export class HTMLGenerator {
             subtitle = '原文と翻訳文の対照表示',
             originalLabel = '原文 (Original)',
             translatedLabel = '翻訳文 (Translation)',
-            styles = this.defaultStyles
+            styles = this.getDefaultStyles(options.fontFamily),
+            fontUrl = ''
         } = options;
+
+        const fontLink = fontUrl ? `<link rel="stylesheet" href="${fontUrl}">` : '';
 
         return `<!DOCTYPE html>
 <html lang="ja">
@@ -412,6 +422,7 @@ export class HTMLGenerator {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${this.escapeHtml(title)}</title>
+    ${fontLink}
     <style>${styles}</style>
 </head>
 <body>
@@ -452,8 +463,11 @@ export class HTMLGenerator {
     generateSingleColumnHtml(content: string, options: SingleColumnOptions = {}): string {
         const {
             title = 'ドキュメント',
-            styles = this.defaultStyles
+            styles = this.getTranslationOnlyStyles(options.fontFamily),
+            fontUrl = ''
         } = options;
+
+        const fontLink = fontUrl ? `<link rel="stylesheet" href="${fontUrl}">` : '';
 
         return `<!DOCTYPE html>
 <html lang="ja">
@@ -461,6 +475,7 @@ export class HTMLGenerator {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${this.escapeHtml(title)}</title>
+    ${fontLink}
     <style>${styles}</style>
 </head>
 <body>
