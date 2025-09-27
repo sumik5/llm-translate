@@ -313,7 +313,8 @@ export class UIManager {
                 translatedText,
                 { title: baseFilename, includeTimestamp: true }
             );
-            const filename = this.markdownGenerator.generateFilename(baseFilename + '_translated');
+            // Use original filename with .md extension only
+            const filename = baseFilename + '.md';
             // Extract images and download separately
             this.markdownGenerator.downloadMarkdownWithImages(markdownContent, filename, { extractImages: true });
         } else if (exportType === 'markdown-comparison') {
@@ -323,7 +324,8 @@ export class UIManager {
                 translatedText,
                 { title: baseFilename, includeTimestamp: true }
             );
-            const filename = this.markdownGenerator.generateFilename(baseFilename + '_comparison');
+            // Use original filename with .md extension only
+            const filename = baseFilename + '.md';
             // Extract images and download separately
             this.markdownGenerator.downloadMarkdownWithImages(markdownContent, filename, { extractImages: true });
         } else {
@@ -349,7 +351,8 @@ export class UIManager {
                         fontUrl: fontUrl
                     }
                 );
-                filename = this.htmlGenerator.generateFilename(baseFilename + '_translated');
+                // Use original filename with .html extension only
+                filename = baseFilename + '.html';
             } else {
                 // Export side-by-side
                 const originalHtml = originalText ?
@@ -366,14 +369,13 @@ export class UIManager {
                         fontUrl: fontUrl
                     }
                 );
-                filename = this.htmlGenerator.generateFilename(baseFilename + '_comparison');
+                // Use original filename with .html extension only
+                filename = baseFilename + '.html';
             }
             
             // Download the file
             this.htmlGenerator.downloadAsHtml(htmlContent, filename);
         }
-        
-        this.clearChanges();
     }
 
     
